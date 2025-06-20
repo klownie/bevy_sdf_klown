@@ -1,23 +1,28 @@
 use bevy::asset::{load_internal_asset, weak_handle};
 use bevy::core_pipeline::prepass::ViewPrepassTextures;
 use bevy::ecs::component::HookContext;
+use bevy::ecs::system::lifetimeless::Read;
 use bevy::ecs::world::DeferredWorld;
 use bevy::pbr::{
     GlobalClusterableObjectMeta, GpuClusterableObjectsStorage, GpuLights, LightMeta,
     ViewLightsUniformOffset,
 };
 use bevy::prelude::*;
-use op::{SdOp, SdOpInstance, SdOpUniform, SdOpUniformInstance};
+use bevy::render::{Render, RenderSet};
+use log::warn;
+use op::{
+    InitSkeinSdRelatinShip, SdOp, SdOpInstance, SdOpUniform, SdOpUniformInstance, SdOperatedBy,
+    SdOperatingOn,
+};
 use shape::{
     SdMaterial, SdMaterialUniform, SdMod, SdShape, SdShapeInstance, SdShapeUniform,
     SdShapeUniformInstance, SdTransform, SdTransformUniform,
 };
-use std::mem::transmute;
 
 use bevy::render::extract_resource::{ExtractResource, ExtractResourcePlugin};
 use bevy::render::render_resource::binding_types::{storage_buffer_read_only, texture_depth_2d};
 use bevy::render::renderer::RenderQueue;
-use bevy::render::view::{ViewUniform, ViewUniformOffset, ViewUniforms};
+use bevy::render::view::{ExtractedView, ViewUniform, ViewUniformOffset, ViewUniforms};
 use bevy::{
     core_pipeline::{
         core_3d::graph::{Core3d, Node3d},
@@ -109,6 +114,7 @@ impl Plugin for RayMarchEnginePlugin {
         .register_type::<SdOp>()
         .register_type::<SdMod>()
         .register_type::<SdIndex>()
+        .register_type::<InitSkeinSdRelatinShip>()
         .register_type::<SdMaterial>()
         .init_resource::<SdShapeStorage>()
         .init_resource::<SdOpStorage>();
@@ -118,6 +124,11 @@ impl Plugin for RayMarchEnginePlugin {
         };
 
         render_app
+            .add_systems(
+                Render,
+                prepare_ray_march_pipelines.in_set(RenderSet::Prepare),
+            )
+            .init_resource::<SpecializedRenderPipelines<RayMarchEnginePipeline>>()
             .add_render_graph_node::<ViewNodeRunner<RayMarchEngineNode>>(
                 Core3d,
                 RayMarchPass::MarchPass,
@@ -141,6 +152,29 @@ impl Plugin for RayMarchEnginePlugin {
     }
 }
 
+#[derive(Component, Deref, DerefMut)]
+pub struct RayMarchEnginePipelineId(pub CachedRenderPipelineId);
+
+fn prepare_ray_march_pipelines(
+    mut commands: Commands,
+    pipeline_cache: Res<PipelineCache>,
+    mut pipelines: ResMut<SpecializedRenderPipelines<RayMarchEnginePipeline>>,
+    post_processing_pipeline: Res<RayMarchEnginePipeline>,
+    views: Query<(Entity, &ExtractedView), With<RayMarchCamera>>,
+) {
+    for (entity, view) in views.iter() {
+        let pipeline_id = pipelines.specialize(
+            &pipeline_cache,
+            &post_processing_pipeline,
+            RayMarchEnginePipelineKey { hdr: view.hdr },
+        );
+
+        commands
+            .entity(entity)
+            .insert(RayMarchEnginePipelineId(pipeline_id));
+    }
+}
+
 #[derive(Debug, Hash, PartialEq, Eq, Clone, RenderLabel)]
 pub enum RayMarchPass {
     MarchPass,
@@ -152,12 +186,13 @@ struct RayMarchEngineNode;
 
 impl ViewNode for RayMarchEngineNode {
     type ViewQuery = (
-        &'static ViewTarget,
-        &'static RayMarchCamera,
-        &'static DynamicUniformIndex<RayMarchCamera>,
-        &'static ViewPrepassTextures,
-        &'static ViewUniformOffset,
-        &'static ViewLightsUniformOffset,
+        Read<ViewTarget>,
+        Read<RayMarchCamera>,
+        Read<DynamicUniformIndex<RayMarchCamera>>,
+        Read<ViewPrepassTextures>,
+        Read<ViewUniformOffset>,
+        Read<ViewLightsUniformOffset>,
+        Read<RayMarchEnginePipelineId>,
     );
 
     fn run(
@@ -171,14 +206,14 @@ impl ViewNode for RayMarchEngineNode {
             view_prepass,
             view_uniform_offset,
             view_lights_uniform_offset,
+            pipeline_id,
         ): QueryItem<Self::ViewQuery>,
         world: &World,
     ) -> Result<(), NodeRunError> {
         let ray_march_pipeline = world.resource::<RayMarchEnginePipeline>();
         let pipeline_cache = world.resource::<PipelineCache>();
 
-        let Some(pipeline) = pipeline_cache.get_render_pipeline(ray_march_pipeline.pipeline_id)
-        else {
+        let Some(pipeline) = pipeline_cache.get_render_pipeline(**pipeline_id) else {
             return Ok(());
         };
 
@@ -301,7 +336,6 @@ struct RayMarchEnginePipeline {
     texture_layout: BindGroupLayout,
     storage_layout: BindGroupLayout,
     sampler: Sampler,
-    pipeline_id: CachedRenderPipelineId,
 }
 
 impl FromWorld for RayMarchEnginePipeline {
@@ -351,40 +385,53 @@ impl FromWorld for RayMarchEnginePipeline {
 
         let sampler = render_device.create_sampler(&SamplerDescriptor::default());
 
-        let pipeline_id =
-            world
-                .resource_mut::<PipelineCache>()
-                .queue_render_pipeline(RenderPipelineDescriptor {
-                    label: Some("ray_march_pipeline".into()),
-                    layout: vec![
-                        common_layout.clone(),
-                        texture_layout.clone(),
-                        storage_layout.clone(),
-                    ],
-                    vertex: fullscreen_shader_vertex_state(),
-                    fragment: Some(FragmentState {
-                        shader: RAY_MARCH_MAIN_PASS_HANDLE,
-                        shader_defs: vec![],
-                        entry_point: "fragment".into(),
-                        targets: vec![Some(ColorTargetState {
-                            format: ViewTarget::TEXTURE_FORMAT_HDR,
-                            blend: None,
-                            write_mask: ColorWrites::COLOR,
-                        })],
-                    }),
-                    primitive: PrimitiveState::default(),
-                    depth_stencil: None,
-                    multisample: MultisampleState::default(),
-                    push_constant_ranges: vec![],
-                    zero_initialize_workgroup_memory: false,
-                });
-
         Self {
             common_layout,
             texture_layout,
             storage_layout,
             sampler,
-            pipeline_id,
+        }
+    }
+}
+
+#[derive(Clone, Copy, PartialEq, Eq, Hash)]
+pub struct RayMarchEnginePipelineKey {
+    pub hdr: bool,
+}
+
+impl SpecializedRenderPipeline for RayMarchEnginePipeline {
+    type Key = RayMarchEnginePipelineKey;
+
+    fn specialize(&self, key: Self::Key) -> RenderPipelineDescriptor {
+        let format = if key.hdr {
+            ViewTarget::TEXTURE_FORMAT_HDR
+        } else {
+            TextureFormat::bevy_default()
+        };
+
+        RenderPipelineDescriptor {
+            label: Some("ray_march_pipeline".into()),
+            layout: vec![
+                self.common_layout.clone(),
+                self.texture_layout.clone(),
+                self.storage_layout.clone(),
+            ],
+            vertex: fullscreen_shader_vertex_state(),
+            fragment: Some(FragmentState {
+                shader: RAY_MARCH_MAIN_PASS_HANDLE,
+                shader_defs: vec![],
+                entry_point: "fragment".into(),
+                targets: vec![Some(ColorTargetState {
+                    format,
+                    blend: None,
+                    write_mask: ColorWrites::COLOR,
+                })],
+            }),
+            primitive: PrimitiveState::default(),
+            depth_stencil: None,
+            multisample: MultisampleState::default(),
+            push_constant_ranges: vec![],
+            zero_initialize_workgroup_memory: false,
         }
     }
 }
@@ -403,17 +450,19 @@ pub struct RayMarchCamera {
 }
 
 fn update_ray_march_buffer(
-    sdf_shape_query: Query<(
-        &SdShape,
-        &SdMod,
-        &GlobalTransform,
-        &MeshMaterial3d<StandardMaterial>,
-        Option<&SdMaterial>,
-    )>,
+    sdf_shape_query: Query<
+        (
+            &SdShape,
+            &SdMod,
+            &GlobalTransform,
+            &MeshMaterial3d<StandardMaterial>,
+            Option<&SdMaterial>,
+        ),
+        With<SdOperatedBy>,
+    >,
     mut sd_shape_buffer: ResMut<SdShapeStorage>,
-    sdf_op_query: Query<(&SdOp, &SdIndex, &Children)>,
+    sdf_op_query: Query<(&SdOp, &SdIndex, &SdOperatingOn)>,
     mut sd_op_buffer: ResMut<SdOpStorage>,
-    children_query: Query<&Children>,
     material_as: Res<Assets<StandardMaterial>>,
 ) {
     let nb_shapes = sdf_shape_query.iter().len() as u16;
@@ -423,7 +472,8 @@ fn update_ray_march_buffer(
     sd_shape_buffer.data = Vec::with_capacity(nb_shapes as usize);
     sd_op_buffer.data = Vec::with_capacity(sdf_op_query.iter().len());
 
-    let mut push_shape = |entity: Entity| -> Option<u16> {
+    let mut push_shape = #[inline]
+    |entity: Entity| -> Option<u16> {
         let (&shape, &modifier, transform, mat_handle, some_sd_mat) =
             sdf_shape_query.get(entity).ok()?;
         let std_material = material_as.get(mat_handle.id())?;
@@ -447,23 +497,25 @@ fn update_ray_march_buffer(
         i
     };
 
-    for (&op, _index, children) in sdf_op_query.iter().sort_unstable::<&SdIndex>().rev() {
-        let mut get_index = |child: Entity| -> Option<u16> {
-            if sdf_op_query.get(child).is_ok() {
+    for (&op, _index, op_on) in sdf_op_query.iter().sort_unstable::<&SdIndex>().rev() {
+        let mut compute_index = |patient: Entity| -> Option<u16> {
+            if sdf_op_query.get(patient).is_ok() {
                 let i = Some(nb_shapes + current_op_index);
                 current_op_index += 1;
                 i
             } else {
-                let shape_entity = children_query.get(child).ok()?[0];
-                push_shape(shape_entity)
+                push_shape(patient)
             }
         };
 
-        let lhs = get_index(children[0]).unwrap_or(0);
-        let rhs = get_index(children[1]).unwrap_or(0);
+        let args = op_on.clone().get_sd_argunments();
+        let lhs = compute_index(args.1).unwrap_or(0);
+        let rhs = compute_index(args.0).unwrap_or(0);
 
         sd_op_buffer.data.push(SdOpInstance { op, lhs, rhs });
     }
+
+    warn! {"{:#?}", sd_op_buffer};
 }
 
 #[derive(Resource, Reflect, Default, Clone, ExtractResource)]

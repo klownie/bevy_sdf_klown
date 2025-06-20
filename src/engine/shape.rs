@@ -11,7 +11,7 @@ pub struct SdShapeUniformInstance {
     pub transform: SdTransformUniform,
 }
 
-#[derive(Reflect, Clone, Copy)]
+#[derive(Reflect, Debug, Clone, Copy)]
 pub struct SdShapeInstance {
     pub shape: SdShape,
     pub material: SdMaterial,
@@ -215,7 +215,7 @@ pub struct SdMaterialUniform {
     pub sss_strength_radius: u32,
 }
 
-#[derive(Component, Reflect, Default, Clone, Copy)]
+#[derive(Component, Reflect, Debug, Default, Clone, Copy)]
 #[reflect(Component)]
 pub struct SdMaterial {
     pub color: Vec4,
@@ -259,7 +259,7 @@ impl From<StandardMaterial> for SdMaterial {
     }
 }
 
-#[derive(Reflect, Clone, Copy)]
+#[derive(Reflect, Debug, Clone, Copy)]
 pub struct SdTransform {
     pub pos: Vec3,
     pub rot: Vec3,

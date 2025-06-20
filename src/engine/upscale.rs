@@ -3,10 +3,10 @@ use bevy::{
         core_3d::graph::{Core3d, Node3d},
         fullscreen_vertex_shader::fullscreen_shader_vertex_state,
     },
-    ecs::query::QueryItem,
+    ecs::{query::QueryItem, system::lifetimeless::Read},
     prelude::*,
     render::{
-        RenderApp,
+        Render, RenderApp, RenderSet,
         extract_component::{
             ComponentUniforms, DynamicUniformIndex, ExtractComponent, ExtractComponentPlugin,
             UniformComponentPlugin,
@@ -19,11 +19,14 @@ use bevy::{
             *,
         },
         renderer::{RenderContext, RenderDevice},
-        view::ViewTarget,
+        view::{ExtractedView, ViewTarget},
     },
 };
 
-use super::{RAY_MARCH_UPSCALE_PASS_HANDLE, RayMarchCamera, RayMarchPass};
+use super::{
+    RAY_MARCH_UPSCALE_PASS_HANDLE, RayMarchCamera, RayMarchEnginePipelineId,
+    RayMarchEnginePipelineKey, RayMarchPass,
+};
 
 const SHADER_ASSET_PATH: &str = "shaders/ray_march/upscale.wgsl";
 
@@ -38,10 +41,16 @@ impl Plugin for RayMarchUpscalePlugin {
             return;
         };
 
-        render_app.add_render_graph_node::<ViewNodeRunner<UpscaleNode>>(
-            Core3d,
-            RayMarchPass::UpscalePass,
-        );
+        render_app
+            .add_systems(
+                Render,
+                prepare_ray_march_pipelines.in_set(RenderSet::Prepare),
+            )
+            .init_resource::<SpecializedRenderPipelines<UpscalePipeline>>()
+            .add_render_graph_node::<ViewNodeRunner<UpscaleNode>>(
+                Core3d,
+                RayMarchPass::UpscalePass,
+            );
     }
 
     fn finish(&self, app: &mut App) {
@@ -53,29 +62,51 @@ impl Plugin for RayMarchUpscalePlugin {
     }
 }
 
+#[derive(Component, Deref, DerefMut)]
+pub struct UpscalePipelineId(pub CachedRenderPipelineId);
+
+fn prepare_ray_march_pipelines(
+    mut commands: Commands,
+    pipeline_cache: Res<PipelineCache>,
+    mut pipelines: ResMut<SpecializedRenderPipelines<UpscalePipeline>>,
+    post_processing_pipeline: Res<UpscalePipeline>,
+    views: Query<(Entity, &ExtractedView), With<RayMarchCamera>>,
+) {
+    for (entity, view) in views.iter() {
+        let pipeline_id = pipelines.specialize(
+            &pipeline_cache,
+            &post_processing_pipeline,
+            UpscalePipelineKey { hdr: view.hdr },
+        );
+
+        commands
+            .entity(entity)
+            .insert(UpscalePipelineId(pipeline_id));
+    }
+}
+
 #[derive(Default)]
 struct UpscaleNode;
 
 impl ViewNode for UpscaleNode {
     type ViewQuery = (
-        &'static ViewTarget,
-        &'static RayMarchCamera,
-        &'static DynamicUniformIndex<RayMarchCamera>,
+        Read<ViewTarget>,
+        Read<RayMarchCamera>,
+        Read<DynamicUniformIndex<RayMarchCamera>>,
+        Read<UpscalePipelineId>,
     );
 
     fn run(
         &self,
         _graph: &mut RenderGraphContext,
         render_context: &mut RenderContext,
-        (view_target, _pixelate_settings, settings_index): QueryItem<Self::ViewQuery>,
+        (view_target, _pixelate_settings, settings_index, pipeline_id): QueryItem<Self::ViewQuery>,
         world: &World,
     ) -> Result<(), NodeRunError> {
         let post_process_pipeline = world.resource::<UpscalePipeline>();
-
         let pipeline_cache = world.resource::<PipelineCache>();
 
-        let Some(pipeline) = pipeline_cache.get_render_pipeline(post_process_pipeline.pipeline_id)
-        else {
+        let Some(pipeline) = pipeline_cache.get_render_pipeline(**pipeline_id) else {
             return Ok(());
         };
 
@@ -122,7 +153,6 @@ impl ViewNode for UpscaleNode {
 struct UpscalePipeline {
     layout: BindGroupLayout,
     sampler: Sampler,
-    pipeline_id: CachedRenderPipelineId,
 }
 
 impl FromWorld for UpscalePipeline {
@@ -143,34 +173,44 @@ impl FromWorld for UpscalePipeline {
 
         let sampler = render_device.create_sampler(&SamplerDescriptor::default());
 
-        let pipeline_id =
-            world
-                .resource_mut::<PipelineCache>()
-                .queue_render_pipeline(RenderPipelineDescriptor {
-                    label: Some("upscale_pipeline".into()),
-                    layout: vec![layout.clone()],
-                    vertex: fullscreen_shader_vertex_state(),
-                    fragment: Some(FragmentState {
-                        shader: RAY_MARCH_UPSCALE_PASS_HANDLE,
-                        shader_defs: vec![],
-                        entry_point: "fragment".into(),
-                        targets: vec![Some(ColorTargetState {
-                            format: ViewTarget::TEXTURE_FORMAT_HDR,
-                            blend: None,
-                            write_mask: ColorWrites::ALL,
-                        })],
-                    }),
-                    primitive: PrimitiveState::default(),
-                    depth_stencil: None,
-                    multisample: MultisampleState::default(),
-                    push_constant_ranges: vec![],
-                    zero_initialize_workgroup_memory: false,
-                });
+        Self { layout, sampler }
+    }
+}
 
-        Self {
-            layout,
-            sampler,
-            pipeline_id,
+#[derive(Clone, Copy, PartialEq, Eq, Hash)]
+pub struct UpscalePipelineKey {
+    pub hdr: bool,
+}
+
+impl SpecializedRenderPipeline for UpscalePipeline {
+    type Key = UpscalePipelineKey;
+
+    fn specialize(&self, key: Self::Key) -> RenderPipelineDescriptor {
+        let format = if key.hdr {
+            ViewTarget::TEXTURE_FORMAT_HDR
+        } else {
+            TextureFormat::bevy_default()
+        };
+
+        RenderPipelineDescriptor {
+            label: Some("upscale_pipeline".into()),
+            layout: vec![self.layout.clone()],
+            vertex: fullscreen_shader_vertex_state(),
+            fragment: Some(FragmentState {
+                shader: RAY_MARCH_UPSCALE_PASS_HANDLE,
+                shader_defs: vec![],
+                entry_point: "fragment".into(),
+                targets: vec![Some(ColorTargetState {
+                    format,
+                    blend: None,
+                    write_mask: ColorWrites::ALL,
+                })],
+            }),
+            primitive: PrimitiveState::default(),
+            depth_stencil: None,
+            multisample: MultisampleState::default(),
+            push_constant_ranges: vec![],
+            zero_initialize_workgroup_memory: false,
         }
     }
 }
