@@ -1,5 +1,3 @@
-#![feature(stmt_expr_attributes)]
-
 pub mod engine;
 use crate::engine::RayMarchEnginePlugin;
 use bevy::prelude::*;

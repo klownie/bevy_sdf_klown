@@ -215,8 +215,8 @@ pub struct SdMaterialUniform {
     pub sss_strength_radius: u32,
 }
 
-#[derive(Component, Reflect, Debug, Default, Clone, Copy)]
-#[reflect(Component)]
+#[derive(Component, Reflect, Debug, Clone, Copy)]
+#[reflect(Component, Default)]
 pub struct SdMaterial {
     pub color: Vec4,
     pub roughness: f32,
@@ -224,6 +224,19 @@ pub struct SdMaterial {
     pub metallic: f32,
     pub sss_strength: f32,
     pub sss_radius: Vec3,
+}
+
+impl Default for SdMaterial {
+    fn default() -> Self {
+        Self {
+            color: Vec4::W,
+            roughness: 0.5,
+            fresnel: 0.,
+            metallic: 0.,
+            sss_strength: 0.,
+            sss_radius: Vec3::ONE,
+        }
+    }
 }
 
 impl SdMaterial {

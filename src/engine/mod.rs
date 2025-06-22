@@ -1,56 +1,37 @@
 use bevy::asset::{load_internal_asset, weak_handle};
-use bevy::core_pipeline::prepass::ViewPrepassTextures;
 use bevy::ecs::component::HookContext;
-use bevy::ecs::system::lifetimeless::Read;
 use bevy::ecs::world::DeferredWorld;
-use bevy::pbr::{
-    GlobalClusterableObjectMeta, GpuClusterableObjectsStorage, GpuLights, LightMeta,
-    ViewLightsUniformOffset,
-};
 use bevy::prelude::*;
+use bevy::render::render_graph::RenderLabel;
 use bevy::render::{Render, RenderSet};
+use camera::RayMarchCamera;
 use log::warn;
-use op::{
-    InitSkeinSdRelatinShip, SdOp, SdOpInstance, SdOpUniform, SdOpUniformInstance, SdOperatedBy,
-    SdOperatingOn,
-};
-use shape::{
-    SdMaterial, SdMaterialUniform, SdMod, SdShape, SdShapeInstance, SdShapeUniform,
-    SdShapeUniformInstance, SdTransform, SdTransformUniform,
-};
+use nodes::RayMarchEngineNode;
+use op::{InitSkeinSdRelatinShip, SdOp, SdOpInstance, SdOperatedBy, SdOperatingOn};
+use pipeline::{RayMarchEnginePipeline, RayMarchEnginePipelineKey};
+use shape::{SdMaterial, SdMod, SdShape, SdShapeInstance, SdTransform};
 
 use bevy::render::extract_resource::{ExtractResource, ExtractResourcePlugin};
-use bevy::render::render_resource::binding_types::{storage_buffer_read_only, texture_depth_2d};
-use bevy::render::renderer::RenderQueue;
-use bevy::render::view::{ExtractedView, ViewUniform, ViewUniformOffset, ViewUniforms};
+use bevy::render::view::ExtractedView;
 use bevy::{
-    core_pipeline::{
-        core_3d::graph::{Core3d, Node3d},
-        fullscreen_vertex_shader::fullscreen_shader_vertex_state,
-    },
-    ecs::query::QueryItem,
+    core_pipeline::core_3d::graph::{Core3d, Node3d},
     render::{
         RenderApp,
-        extract_component::{
-            ComponentUniforms, DynamicUniformIndex, ExtractComponent, ExtractComponentPlugin,
-            UniformComponentPlugin,
-        },
-        render_graph::{
-            NodeRunError, RenderGraphApp, RenderGraphContext, RenderLabel, ViewNode, ViewNodeRunner,
-        },
-        render_resource::{
-            binding_types::{sampler, texture_2d, uniform_buffer},
-            *,
-        },
-        renderer::{RenderContext, RenderDevice},
-        view::ViewTarget,
+        extract_component::{ExtractComponentPlugin, UniformComponentPlugin},
+        render_graph::{RenderGraphApp, ViewNodeRunner},
+        render_resource::*,
     },
 };
 use upscale::RayMarchUpscalePlugin;
 
-mod op;
-mod shape;
+mod nodes;
+mod pipeline;
+
 mod upscale;
+
+pub mod camera;
+pub mod op;
+pub mod shape;
 
 const RAY_MARCH_MAIN_PASS_HANDLE: Handle<Shader> =
     weak_handle!("ca4a5dbf-4da9-4779-bcdc-dd3186088e08");
@@ -181,274 +162,6 @@ pub enum RayMarchPass {
     UpscalePass,
 }
 
-#[derive(Default)]
-struct RayMarchEngineNode;
-
-impl ViewNode for RayMarchEngineNode {
-    type ViewQuery = (
-        Read<ViewTarget>,
-        Read<RayMarchCamera>,
-        Read<DynamicUniformIndex<RayMarchCamera>>,
-        Read<ViewPrepassTextures>,
-        Read<ViewUniformOffset>,
-        Read<ViewLightsUniformOffset>,
-        Read<RayMarchEnginePipelineId>,
-    );
-
-    fn run(
-        &self,
-        _graph: &mut RenderGraphContext,
-        render_context: &mut RenderContext,
-        (
-            view_target,
-            _ray_march_settings,
-            settings_index,
-            view_prepass,
-            view_uniform_offset,
-            view_lights_uniform_offset,
-            pipeline_id,
-        ): QueryItem<Self::ViewQuery>,
-        world: &World,
-    ) -> Result<(), NodeRunError> {
-        let ray_march_pipeline = world.resource::<RayMarchEnginePipeline>();
-        let pipeline_cache = world.resource::<PipelineCache>();
-
-        let Some(pipeline) = pipeline_cache.get_render_pipeline(**pipeline_id) else {
-            return Ok(());
-        };
-
-        let settings_uniforms = world.resource::<ComponentUniforms<RayMarchCamera>>();
-        let Some(settings_binding) = settings_uniforms.uniforms().binding() else {
-            return Ok(());
-        };
-
-        let post_process = view_target.post_process_write();
-
-        let (Some(depth_prepass), Some(normal_prepass), Some(motion_prepass)) = (
-            view_prepass.depth_view(),
-            view_prepass.normal_view(),
-            view_prepass.motion_vectors_view(),
-        ) else {
-            return Ok(());
-        };
-
-        let texture_bind_group = render_context.render_device().create_bind_group(
-            "ray_march_texture_bind_group",
-            &ray_march_pipeline.texture_layout,
-            &BindGroupEntries::sequential((
-                post_process.source,
-                &ray_march_pipeline.sampler,
-                depth_prepass,
-                settings_binding.clone(),
-            )),
-        );
-
-        let view_uniforms = world.get_resource::<ViewUniforms>().unwrap();
-        let Some(view_binding) = view_uniforms.uniforms.binding() else {
-            return Ok(());
-        };
-
-        let light = world.get_resource::<LightMeta>().unwrap();
-        let Some(light_binding) = light.view_gpu_lights.binding() else {
-            return Ok(());
-        };
-
-        let clusterable_objects = world.get_resource::<GlobalClusterableObjectMeta>().unwrap();
-        let Some(clusterables_objects_binding) =
-            clusterable_objects.gpu_clusterable_objects.binding()
-        else {
-            return Ok(());
-        };
-
-        let common_bind_group = render_context.render_device().create_bind_group(
-            "ray_march_view_bind_group",
-            &ray_march_pipeline.common_layout,
-            &BindGroupEntries::with_indices((
-                (0, view_binding.clone()),
-                (1, light_binding.clone()),
-                (8, clusterables_objects_binding.clone()),
-            )),
-        );
-
-        let sd_shape_ressource = world.resource::<SdShapeStorage>();
-        let mut sd_shape_storage = BufferVec::<SdShapeUniformInstance>::new(BufferUsages::STORAGE);
-        for &sd_shape in sd_shape_ressource.data.iter() {
-            sd_shape_storage.push(SdShapeUniformInstance {
-                shape: sd_shape.shape.uniform(),
-                material: sd_shape.material.uniform(),
-                modifier: sd_shape.modifier.uniform(),
-                transform: sd_shape.transform.uniform(),
-            });
-        }
-
-        let sd_op_ressource = world.resource::<SdOpStorage>();
-        let mut sd_op_storage = BufferVec::<SdOpUniformInstance>::new(BufferUsages::STORAGE);
-        for &sd_op in sd_op_ressource.data.iter() {
-            sd_op_storage.push(sd_op.uniform());
-        }
-
-        let render_device = world.resource::<RenderDevice>();
-        let render_queue = world.resource::<RenderQueue>();
-        sd_shape_storage.write_buffer(render_device, render_queue);
-        sd_op_storage.write_buffer(render_device, render_queue);
-
-        let storage_bind_group = render_context.render_device().create_bind_group(
-            "marcher_storage_bind_group",
-            &ray_march_pipeline.storage_layout,
-            &BindGroupEntries::sequential((
-                sd_shape_storage.binding().unwrap(),
-                sd_op_storage.binding().unwrap(),
-            )),
-        );
-
-        let mut render_pass = render_context.begin_tracked_render_pass(RenderPassDescriptor {
-            label: Some("ray_march_pass"),
-            color_attachments: &[Some(RenderPassColorAttachment {
-                view: post_process.destination,
-                resolve_target: None,
-                ops: Operations::default(),
-            })],
-            depth_stencil_attachment: None,
-            timestamp_writes: None,
-            occlusion_query_set: None,
-        });
-
-        render_pass.set_render_pipeline(pipeline);
-        render_pass.set_bind_group(
-            0,
-            &common_bind_group,
-            &[
-                view_uniform_offset.offset,
-                view_lights_uniform_offset.offset,
-            ],
-        );
-        render_pass.set_bind_group(1, &texture_bind_group, &[settings_index.index()]);
-        render_pass.set_bind_group(2, &storage_bind_group, &[]);
-        render_pass.draw(0..3, 0..1);
-
-        Ok(())
-    }
-}
-
-#[derive(Resource)]
-struct RayMarchEnginePipeline {
-    common_layout: BindGroupLayout,
-    texture_layout: BindGroupLayout,
-    storage_layout: BindGroupLayout,
-    sampler: Sampler,
-}
-
-impl FromWorld for RayMarchEnginePipeline {
-    fn from_world(world: &mut World) -> Self {
-        let render_device = world.resource::<RenderDevice>();
-
-        let common_layout = render_device.create_bind_group_layout(
-            "ray_march_import_bind_group_layout",
-            &BindGroupLayoutEntries::with_indices(
-                ShaderStages::FRAGMENT,
-                (
-                    (0, uniform_buffer::<ViewUniform>(true)),
-                    // Directional Lights
-                    (1, uniform_buffer::<GpuLights>(true)),
-                    // Spotlights
-                    (
-                        8,
-                        storage_buffer_read_only::<GpuClusterableObjectsStorage>(false),
-                    ),
-                ),
-            ),
-        );
-
-        let texture_layout = render_device.create_bind_group_layout(
-            "ray_march_texture_bind_group_layout",
-            &BindGroupLayoutEntries::sequential(
-                ShaderStages::FRAGMENT,
-                (
-                    texture_2d(TextureSampleType::Float { filterable: true }),
-                    sampler(SamplerBindingType::Filtering),
-                    texture_depth_2d(),
-                    uniform_buffer::<RayMarchCamera>(true),
-                ),
-            ),
-        );
-
-        let storage_layout = render_device.create_bind_group_layout(
-            "ray_march_storage_bind_group_layout",
-            &BindGroupLayoutEntries::sequential(
-                ShaderStages::FRAGMENT,
-                (
-                    storage_buffer_read_only::<SdShapeUniformInstance>(false),
-                    storage_buffer_read_only::<SdOpUniformInstance>(false),
-                ),
-            ),
-        );
-
-        let sampler = render_device.create_sampler(&SamplerDescriptor::default());
-
-        Self {
-            common_layout,
-            texture_layout,
-            storage_layout,
-            sampler,
-        }
-    }
-}
-
-#[derive(Clone, Copy, PartialEq, Eq, Hash)]
-pub struct RayMarchEnginePipelineKey {
-    pub hdr: bool,
-}
-
-impl SpecializedRenderPipeline for RayMarchEnginePipeline {
-    type Key = RayMarchEnginePipelineKey;
-
-    fn specialize(&self, key: Self::Key) -> RenderPipelineDescriptor {
-        let format = if key.hdr {
-            ViewTarget::TEXTURE_FORMAT_HDR
-        } else {
-            TextureFormat::bevy_default()
-        };
-
-        RenderPipelineDescriptor {
-            label: Some("ray_march_pipeline".into()),
-            layout: vec![
-                self.common_layout.clone(),
-                self.texture_layout.clone(),
-                self.storage_layout.clone(),
-            ],
-            vertex: fullscreen_shader_vertex_state(),
-            fragment: Some(FragmentState {
-                shader: RAY_MARCH_MAIN_PASS_HANDLE,
-                shader_defs: vec![],
-                entry_point: "fragment".into(),
-                targets: vec![Some(ColorTargetState {
-                    format,
-                    blend: None,
-                    write_mask: ColorWrites::COLOR,
-                })],
-            }),
-            primitive: PrimitiveState::default(),
-            depth_stencil: None,
-            multisample: MultisampleState::default(),
-            push_constant_ranges: vec![],
-            zero_initialize_workgroup_memory: false,
-        }
-    }
-}
-
-#[derive(Component, Default, Clone, Copy, Reflect, ExtractComponent, ShaderType)]
-#[reflect(Component)]
-pub struct RayMarchCamera {
-    pub downscale: f32,
-    pub eps: f32,
-    pub max_distance: f32,
-    pub max_steps: u32,
-    pub shadow_eps: f32,
-    pub shadow_max_steps: u32,
-    pub shadow_max_distance: f32,
-    pub normal_eps: f32,
-}
-
 fn update_ray_march_buffer(
     sdf_shape_query: Query<
         (
@@ -472,8 +185,7 @@ fn update_ray_march_buffer(
     sd_shape_buffer.data = Vec::with_capacity(nb_shapes as usize);
     sd_op_buffer.data = Vec::with_capacity(sdf_op_query.iter().len());
 
-    let mut push_shape = #[inline]
-    |entity: Entity| -> Option<u16> {
+    let mut push_shape = |entity: Entity| -> Option<u16> {
         let (&shape, &modifier, transform, mat_handle, some_sd_mat) =
             sdf_shape_query.get(entity).ok()?;
         let std_material = material_as.get(mat_handle.id())?;
@@ -519,13 +231,13 @@ fn update_ray_march_buffer(
 }
 
 #[derive(Resource, Reflect, Default, Clone, ExtractResource)]
-#[reflect(Resource, Default, Clone)]
+#[reflect(Resource, Default)]
 pub struct SdShapeStorage {
     pub data: Vec<SdShapeInstance>,
 }
 
 #[derive(Resource, Reflect, Debug, Default, Clone, ExtractResource)]
-#[reflect(Resource, Default, Clone)]
+#[reflect(Resource, Default)]
 pub struct SdOpStorage {
     pub data: Vec<SdOpInstance>,
 }
