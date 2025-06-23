@@ -1,18 +1,14 @@
 use bevy::{
     core_pipeline::{
-        core_3d::graph::{Core3d, Node3d},
-        fullscreen_vertex_shader::fullscreen_shader_vertex_state,
+        core_3d::graph::Core3d, fullscreen_vertex_shader::fullscreen_shader_vertex_state,
     },
     ecs::{query::QueryItem, system::lifetimeless::Read},
     prelude::*,
     render::{
         Render, RenderApp, RenderSet,
-        extract_component::{
-            ComponentUniforms, DynamicUniformIndex, ExtractComponent, ExtractComponentPlugin,
-            UniformComponentPlugin,
-        },
+        extract_component::{ComponentUniforms, DynamicUniformIndex},
         render_graph::{
-            NodeRunError, RenderGraphApp, RenderGraphContext, RenderLabel, ViewNode, ViewNodeRunner,
+            NodeRunError, RenderGraphApp, RenderGraphContext, ViewNode, ViewNodeRunner,
         },
         render_resource::{
             binding_types::{sampler, texture_2d, uniform_buffer},
@@ -23,12 +19,7 @@ use bevy::{
     },
 };
 
-use super::{
-    RAY_MARCH_UPSCALE_PASS_HANDLE, RayMarchCamera, RayMarchEnginePipelineId,
-    RayMarchEnginePipelineKey, RayMarchPass,
-};
-
-const SHADER_ASSET_PATH: &str = "shaders/ray_march/upscale.wgsl";
+use super::{RAY_MARCH_UPSCALE_PASS_HANDLE, RayMarchCamera, RayMarchPass};
 
 pub struct RayMarchUpscalePlugin;
 
@@ -36,7 +27,6 @@ impl Plugin for RayMarchUpscalePlugin {
     fn build(&self, app: &mut App) {
         app.add_plugins(());
 
-        // We need to get the render app from the main app
         let Some(render_app) = app.get_sub_app_mut(RenderApp) else {
             return;
         };

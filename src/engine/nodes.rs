@@ -133,6 +133,7 @@ impl ViewNode for RayMarchEngineNode {
 
         let render_device = world.resource::<RenderDevice>();
         let render_queue = world.resource::<RenderQueue>();
+
         sd_shape_storage.write_buffer(render_device, render_queue);
         sd_op_storage.write_buffer(render_device, render_queue);
 

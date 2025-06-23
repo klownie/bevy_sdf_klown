@@ -5,7 +5,6 @@ use bevy::prelude::*;
 use bevy::render::render_graph::RenderLabel;
 use bevy::render::{Render, RenderSet};
 use camera::RayMarchCamera;
-use log::warn;
 use nodes::RayMarchEngineNode;
 use op::{InitSkeinSdRelatinShip, SdOp, SdOpInstance, SdOperatedBy, SdOperatingOn};
 use pipeline::{RayMarchEnginePipeline, RayMarchEnginePipelineKey};
@@ -226,8 +225,6 @@ fn update_ray_march_buffer(
 
         sd_op_buffer.data.push(SdOpInstance { op, lhs, rhs });
     }
-
-    warn! {"{:#?}", sd_op_buffer};
 }
 
 #[derive(Resource, Reflect, Default, Clone, ExtractResource)]
