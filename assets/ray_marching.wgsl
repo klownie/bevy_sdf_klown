@@ -8,12 +8,9 @@
 #import bevy_sdf::selectors::{select_shape, select_op};
 #import bevy_sdf::types::{SdMaterial, SdMaterialPacked, SdShapeInstancePacked, pack_distance_info, unpack_sd_shape_instance, unpack_sd_material, unpack_distance_info, SdShapeInstance, SdOpInstance, SdOpInstancePacked, unpack_sd_op_instance, SdOp, SdOpPacked, unpack_sd_op, MarchOutput, DistanceInfo, DistanceInfoPacked}
 
-@group(1) @binding(0) var screen_texture: texture_2d<f32>;
-@group(1) @binding(1) var texture_sampler: sampler;
-@group(1) @binding(2) var depth_texture: texture_depth_2d;
-
+@group(1) @binding(0) var depth_texture: texture_depth_2d;
 struct RayMarchCamera {
-    down_scale: f32,
+    depth_scale: f32,
     eps: f32,
     max_distance: f32,
     max_steps: u32,
@@ -22,11 +19,16 @@ struct RayMarchCamera {
     shadow_max_distance: f32,
     normal_eps: f32
 }
-@group(1) @binding(3) var<uniform> settings: RayMarchCamera;
+@group(1) @binding(1) var<uniform> settings: RayMarchCamera;
 
 // TODO: seperate the sd_shapes buffer into multiple buffers for more performance
 @group(2) @binding(0) var<storage, read> sd_shapes: array<SdShapeInstancePacked>;
 @group(2) @binding(1) var<storage, read> sd_ops: array<SdOpInstancePacked>;
+
+@group(3) @binding(0) var depth_prepass: texture_storage_2d<r32float, write>;
+@group(3) @binding(1) var normal_prepass: texture_storage_2d<rgba32float, write>;
+@group(3) @binding(2) var material_prepass: texture_storage_2d<rgba32float, write>;
+@group(3) @binding(3) var mask_prepass: texture_storage_2d<r32float, write>;
 
 // TODO: Make op_resut recyce te sapce in te array to get a significant perforamce boost when dealing with large amounts of OPS
 const MAX_OPS: u32 = 8;
@@ -307,37 +309,49 @@ fn compute_sss(
 }
 
 
-@fragment
-fn fragment(in: FullscreenVertexOutput) -> @location(0) vec4f {
+@compute @workgroup_size(8, 8, 1)
+fn init(@builtin(global_invocation_id) id: vec3u) {
     
-    var uv = in.uv * 2.0 - 1.0;
-    uv.y *= -1.0;
-    uv *= settings.down_scale;
-    let sampler_uv = in.uv * settings.down_scale - (settings.down_scale / 2. - 0.5);
+    let buffer_size = vec2f(textureDimensions(depth_prepass));
 
-    if (any(uv >= vec2(1.)) || any(uv <= vec2(-1.))) {
-        return vec4f(0.0);
+    let frag_coord = vec2f(id.xy);
+    let uv = frag_coord / buffer_size;
+
+    var march_uv = uv * 2.0 - 1.0;
+    march_uv.y *= -1.0;
+    march_uv /= settings.depth_scale;
+    
+    let downscaled_coord = ( frag_coord - ((buffer_size / 2.0)  * (1.0 - settings.depth_scale)) ) / settings.depth_scale ;
+
+    // prevent overdraw
+    if (any(march_uv >= vec2(1.)) || any(march_uv <= vec2(-1.))) {
+        return;
     }
-
-    let temp = view.world_from_clip * vec4f(uv, 1.0, 1.0);
+    
+    let temp = view.world_from_clip * vec4f(march_uv, 1.0, 1.0);
     let ro = temp.xyz / temp.w;
     let rd = normalize(ro * view.world_from_clip[2].w - view.world_from_clip[2].xyz);
 
     let m = march(ro, rd);
-    let bg = textureSample(screen_texture, texture_sampler, sampler_uv).rgb;
-    let world_depth = textureSample(depth_texture, texture_sampler, sampler_uv);
+    let world_depth = textureLoad(depth_texture, vec2u(downscaled_coord), 0);
 
-    let c = apply_lighting(m.pos -0.1*m.normal, rd, m.pos, m.normal, m.material);
+    let material = apply_lighting(m.pos -0.1*m.normal, rd, m.pos, m.normal, m.material);
 
     let p_clip = view.clip_from_world * vec4f(m.pos, 1.0);
     let p_ndc = p_clip / p_clip.w;
     let ray_depth = p_ndc.z;
 
     let depth = select(ray_depth, -1.0, m.depth > settings.max_distance);
-    let mask = depth < world_depth;
 
-    var col = select(c, bg, mask);
-    col = mix(col, bg, 1.0 - m.material.color.a);
+    textureStore(depth_prepass, id.xy, vec4f(vec3f(ray_depth), 1.));
+    textureStore(normal_prepass, id.xy, vec4f(vec3f(m.normal), 1.));
+    textureStore(material_prepass, id.xy, vec4f(vec3f(material), 1.));
 
-    return vec4f(col, 0.0);
+    let mask = f32(depth < world_depth);
+
+    textureStore(mask_prepass, id.xy, vec4f(vec3f(mask), 1.));
+}
+
+@compute @workgroup_size(8, 8, 1)
+fn scale(@builtin(global_invocation_id) id: vec3u) {
 }

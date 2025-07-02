@@ -7,6 +7,7 @@ use bevy::{
     render::{
         Render, RenderApp, RenderSet,
         extract_component::{ComponentUniforms, DynamicUniformIndex},
+        render_asset::RenderAssets,
         render_graph::{
             NodeRunError, RenderGraphApp, RenderGraphContext, ViewNode, ViewNodeRunner,
         },
@@ -15,11 +16,12 @@ use bevy::{
             *,
         },
         renderer::{RenderContext, RenderDevice},
+        texture::GpuImage,
         view::{ExtractedView, ViewTarget},
     },
 };
 
-use super::{RAY_MARCH_UPSCALE_PASS_HANDLE, RayMarchCamera, RayMarchPass};
+use super::{RAY_MARCH_UPSCALE_PASS_HANDLE, RayMarchCamera, RayMarchPass, RayMarchPrepass};
 
 pub struct RayMarchUpscalePlugin;
 
@@ -37,10 +39,7 @@ impl Plugin for RayMarchUpscalePlugin {
                 prepare_ray_march_pipelines.in_set(RenderSet::Prepare),
             )
             .init_resource::<SpecializedRenderPipelines<UpscalePipeline>>()
-            .add_render_graph_node::<ViewNodeRunner<UpscaleNode>>(
-                Core3d,
-                RayMarchPass::UpscalePass,
-            );
+            .add_render_graph_node::<ViewNodeRunner<UpscaleNode>>(Core3d, RayMarchPass::MainPass);
     }
 
     fn finish(&self, app: &mut App) {
@@ -84,13 +83,16 @@ impl ViewNode for UpscaleNode {
         Read<RayMarchCamera>,
         Read<DynamicUniformIndex<RayMarchCamera>>,
         Read<UpscalePipelineId>,
+        Read<RayMarchPrepass>,
     );
 
     fn run(
         &self,
         _graph: &mut RenderGraphContext,
         render_context: &mut RenderContext,
-        (view_target, _pixelate_settings, settings_index, pipeline_id): QueryItem<Self::ViewQuery>,
+        (view_target, _pixelate_settings, settings_index, pipeline_id, raymarch_prepass): QueryItem<
+            Self::ViewQuery,
+        >,
         world: &World,
     ) -> Result<(), NodeRunError> {
         let post_process_pipeline = world.resource::<UpscalePipeline>();
@@ -118,6 +120,19 @@ impl ViewNode for UpscaleNode {
             )),
         );
 
+        let Some(material_map) = world
+            .resource::<RenderAssets<GpuImage>>()
+            .get(raymarch_prepass.material.id())
+        else {
+            return Ok(());
+        };
+
+        let prepass_bind_group = render_context.render_device().create_bind_group(
+            "marcher_prepass_bind_group",
+            &post_process_pipeline.prepass_layout,
+            &BindGroupEntries::single(&material_map.texture_view),
+        );
+
         // Begin the render pass
         let mut render_pass = render_context.begin_tracked_render_pass(RenderPassDescriptor {
             label: Some("upscale_pass"),
@@ -133,6 +148,7 @@ impl ViewNode for UpscaleNode {
 
         render_pass.set_render_pipeline(pipeline);
         render_pass.set_bind_group(0, &bind_group, &[settings_index.index()]);
+        render_pass.set_bind_group(1, &prepass_bind_group, &[]);
         render_pass.draw(0..3, 0..1);
 
         Ok(())
@@ -143,6 +159,7 @@ impl ViewNode for UpscaleNode {
 struct UpscalePipeline {
     layout: BindGroupLayout,
     sampler: Sampler,
+    prepass_layout: BindGroupLayout,
 }
 
 impl FromWorld for UpscalePipeline {
@@ -163,7 +180,19 @@ impl FromWorld for UpscalePipeline {
 
         let sampler = render_device.create_sampler(&SamplerDescriptor::default());
 
-        Self { layout, sampler }
+        let prepass_layout = render_device.create_bind_group_layout(
+            "upscale_bind_group_layout",
+            &BindGroupLayoutEntries::sequential(
+                ShaderStages::FRAGMENT,
+                (texture_2d(TextureSampleType::Float { filterable: true }),),
+            ),
+        );
+
+        Self {
+            layout,
+            sampler,
+            prepass_layout,
+        }
     }
 }
 
@@ -184,7 +213,7 @@ impl SpecializedRenderPipeline for UpscalePipeline {
 
         RenderPipelineDescriptor {
             label: Some("upscale_pipeline".into()),
-            layout: vec![self.layout.clone()],
+            layout: vec![self.layout.clone(), self.prepass_layout.clone()],
             vertex: fullscreen_shader_vertex_state(),
             fragment: Some(FragmentState {
                 shader: RAY_MARCH_UPSCALE_PASS_HANDLE,

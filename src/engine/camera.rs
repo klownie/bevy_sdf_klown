@@ -6,7 +6,7 @@ use bevy::{
 #[derive(Component, Clone, Reflect, ExtractComponent, ShaderType)]
 #[reflect(Component, Default)]
 pub struct RayMarchCamera {
-    pub downscale: f32,
+    pub depth_scale: f32,
     pub eps: f32,
     pub max_distance: f32,
     pub max_steps: u32,
@@ -19,7 +19,7 @@ pub struct RayMarchCamera {
 impl Default for RayMarchCamera {
     fn default() -> Self {
         Self {
-            downscale: 6.,
+            depth_scale: 0.3,
             eps: 0.007,
             max_steps: 500,
             max_distance: 500.,

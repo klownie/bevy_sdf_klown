@@ -1,13 +1,16 @@
 use bevy::ecs::query::QueryItem;
 use bevy::pbr::{GlobalClusterableObjectMeta, LightMeta};
 use bevy::prelude::*;
+use bevy::render::camera::ExtractedCamera;
 use bevy::render::extract_component::ComponentUniforms;
+use bevy::render::render_asset::RenderAssets;
 use bevy::render::render_graph::NodeRunError;
 use bevy::render::render_resource::{
-    BindGroupEntries, BufferUsages, BufferVec, Operations, PipelineCache,
+    BindGroupEntries, BufferUsages, BufferVec, ComputePassDescriptor, Operations, PipelineCache,
     RenderPassColorAttachment, RenderPassDescriptor,
 };
 use bevy::render::renderer::{RenderContext, RenderDevice, RenderQueue};
+use bevy::render::texture::GpuImage;
 use bevy::render::view::ViewUniforms;
 use bevy::{
     core_pipeline::prepass::ViewPrepassTextures,
@@ -23,7 +26,10 @@ use bevy::{
 use super::op::SdOpUniformInstance;
 use super::pipeline::RayMarchEnginePipeline;
 use super::shape::SdShapeUniformInstance;
-use super::{RayMarchCamera, RayMarchEnginePipelineId, SdOpStorage, SdShapeStorage};
+use super::{
+    RayMarchCamera, RayMarchEnginePipelineId, RayMarchPrepass, SdOpStorage, SdShapeStorage,
+    WORKGROUP_SIZE,
+};
 
 #[derive(Default)]
 pub struct RayMarchEngineNode;
@@ -31,12 +37,14 @@ pub struct RayMarchEngineNode;
 impl ViewNode for RayMarchEngineNode {
     type ViewQuery = (
         Read<ViewTarget>,
+        Read<ExtractedCamera>,
         Read<RayMarchCamera>,
         Read<DynamicUniformIndex<RayMarchCamera>>,
         Read<ViewPrepassTextures>,
         Read<ViewUniformOffset>,
         Read<ViewLightsUniformOffset>,
         Read<RayMarchEnginePipelineId>,
+        Read<RayMarchPrepass>,
     );
 
     fn run(
@@ -45,19 +53,21 @@ impl ViewNode for RayMarchEngineNode {
         render_context: &mut RenderContext,
         (
             view_target,
+            camera,
             _ray_march_settings,
             settings_index,
             view_prepass,
             view_uniform_offset,
             view_lights_uniform_offset,
             pipeline_id,
+            raymarch_prepass,
         ): QueryItem<Self::ViewQuery>,
         world: &World,
     ) -> Result<(), NodeRunError> {
         let ray_march_pipeline = world.resource::<RayMarchEnginePipeline>();
         let pipeline_cache = world.resource::<PipelineCache>();
 
-        let Some(pipeline) = pipeline_cache.get_render_pipeline(**pipeline_id) else {
+        let Some(march_pipeline) = pipeline_cache.get_compute_pipeline(**pipeline_id) else {
             return Ok(());
         };
 
@@ -66,25 +76,14 @@ impl ViewNode for RayMarchEngineNode {
             return Ok(());
         };
 
-        let post_process = view_target.post_process_write();
-
-        let (Some(depth_prepass), Some(normal_prepass), Some(motion_prepass)) = (
-            view_prepass.depth_view(),
-            view_prepass.normal_view(),
-            view_prepass.motion_vectors_view(),
-        ) else {
+        let Some(depth_prepass) = view_prepass.depth_view() else {
             return Ok(());
         };
 
         let texture_bind_group = render_context.render_device().create_bind_group(
             "ray_march_texture_bind_group",
             &ray_march_pipeline.texture_layout,
-            &BindGroupEntries::sequential((
-                post_process.source,
-                &ray_march_pipeline.sampler,
-                depth_prepass,
-                settings_binding.clone(),
-            )),
+            &BindGroupEntries::sequential((depth_prepass, settings_binding.clone())),
         );
 
         let view_uniforms = world.get_resource::<ViewUniforms>().unwrap();
@@ -146,20 +145,59 @@ impl ViewNode for RayMarchEngineNode {
             )),
         );
 
-        let mut render_pass = render_context.begin_tracked_render_pass(RenderPassDescriptor {
-            label: Some("ray_march_pass"),
-            color_attachments: &[Some(RenderPassColorAttachment {
-                view: post_process.destination,
-                resolve_target: None,
-                ops: Operations::default(),
-            })],
-            depth_stencil_attachment: None,
-            timestamp_writes: None,
-            occlusion_query_set: None,
-        });
+        let Some(depth_map) = world
+            .resource::<RenderAssets<GpuImage>>()
+            .get(raymarch_prepass.depth.id())
+        else {
+            return Ok(());
+        };
 
-        render_pass.set_render_pipeline(pipeline);
-        render_pass.set_bind_group(
+        let Some(normal_map) = world
+            .resource::<RenderAssets<GpuImage>>()
+            .get(raymarch_prepass.normal.id())
+        else {
+            return Ok(());
+        };
+
+        let Some(material_map) = world
+            .resource::<RenderAssets<GpuImage>>()
+            .get(raymarch_prepass.material.id())
+        else {
+            return Ok(());
+        };
+
+        let Some(mask_map) = world
+            .resource::<RenderAssets<GpuImage>>()
+            .get(raymarch_prepass.mask.id())
+        else {
+            return Ok(());
+        };
+
+        let prepass_bind_group = render_context.render_device().create_bind_group(
+            "marcher_prepass_bind_group",
+            &ray_march_pipeline.prepass_layout,
+            &BindGroupEntries::sequential((
+                &depth_map.texture_view,
+                &normal_map.texture_view,
+                &material_map.texture_view,
+                &mask_map.texture_view,
+            )),
+        );
+
+        let Some(viewport) = camera.physical_viewport_size else {
+            return Ok(());
+        };
+
+        let mut compute_pass =
+            render_context
+                .command_encoder()
+                .begin_compute_pass(&ComputePassDescriptor {
+                    label: Some("ray_march_pass"),
+                    timestamp_writes: None,
+                });
+
+        compute_pass.set_pipeline(march_pipeline);
+        compute_pass.set_bind_group(
             0,
             &common_bind_group,
             &[
@@ -167,9 +205,14 @@ impl ViewNode for RayMarchEngineNode {
                 view_lights_uniform_offset.offset,
             ],
         );
-        render_pass.set_bind_group(1, &texture_bind_group, &[settings_index.index()]);
-        render_pass.set_bind_group(2, &storage_bind_group, &[]);
-        render_pass.draw(0..3, 0..1);
+        compute_pass.set_bind_group(1, &texture_bind_group, &[settings_index.index()]);
+        compute_pass.set_bind_group(2, &storage_bind_group, &[]);
+        compute_pass.set_bind_group(3, &prepass_bind_group, &[]);
+        compute_pass.dispatch_workgroups(
+            viewport.x.div_ceil(WORKGROUP_SIZE),
+            viewport.y.div_ceil(WORKGROUP_SIZE),
+            1,
+        );
 
         Ok(())
     }

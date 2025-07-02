@@ -17,5 +17,6 @@ Any help would be greatly apreciated
 - [] Custom hard coded SDF Shaders
 - [X] SDF Modifiers
 - [] Compatibility with bevy_solair (ray tracing)
+- [] Compatibility as a WESL shader Lib
 
 # How to use with bevy_skein 

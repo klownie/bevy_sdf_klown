@@ -1,15 +1,14 @@
 use bevy::{
-    core_pipeline::fullscreen_vertex_shader::fullscreen_shader_vertex_state,
     pbr::{GpuClusterableObjectsStorage, GpuLights},
     prelude::*,
     render::{
         render_resource::{
-            BindGroupLayout, BindGroupLayoutEntries, ColorTargetState, ColorWrites, FragmentState,
-            MultisampleState, PrimitiveState, RenderPipelineDescriptor, Sampler,
-            SamplerBindingType, SamplerDescriptor, ShaderStages, SpecializedRenderPipeline,
-            TextureFormat, TextureSampleType,
+            BindGroupLayout, BindGroupLayoutEntries, ComputePipelineDescriptor, Sampler,
+            SamplerBindingType, SamplerDescriptor, ShaderStages, SpecializedComputePipeline,
+            StorageTextureAccess, TextureFormat,
             binding_types::{
-                sampler, storage_buffer_read_only, texture_2d, texture_depth_2d, uniform_buffer,
+                sampler, storage_buffer_read_only, texture_2d, texture_depth_2d,
+                texture_storage_2d, uniform_buffer,
             },
         },
         renderer::RenderDevice,
@@ -27,7 +26,7 @@ pub struct RayMarchEnginePipeline {
     pub common_layout: BindGroupLayout,
     pub texture_layout: BindGroupLayout,
     pub storage_layout: BindGroupLayout,
-    pub sampler: Sampler,
+    pub prepass_layout: BindGroupLayout,
 }
 
 impl FromWorld for RayMarchEnginePipeline {
@@ -37,7 +36,7 @@ impl FromWorld for RayMarchEnginePipeline {
         let common_layout = render_device.create_bind_group_layout(
             "ray_march_import_bind_group_layout",
             &BindGroupLayoutEntries::with_indices(
-                ShaderStages::FRAGMENT,
+                ShaderStages::COMPUTE,
                 (
                     (0, uniform_buffer::<ViewUniform>(true)),
                     // Directional Lights
@@ -54,20 +53,15 @@ impl FromWorld for RayMarchEnginePipeline {
         let texture_layout = render_device.create_bind_group_layout(
             "ray_march_texture_bind_group_layout",
             &BindGroupLayoutEntries::sequential(
-                ShaderStages::FRAGMENT,
-                (
-                    texture_2d(TextureSampleType::Float { filterable: true }),
-                    sampler(SamplerBindingType::Filtering),
-                    texture_depth_2d(),
-                    uniform_buffer::<RayMarchCamera>(true),
-                ),
+                ShaderStages::COMPUTE,
+                (texture_depth_2d(), uniform_buffer::<RayMarchCamera>(true)),
             ),
         );
 
         let storage_layout = render_device.create_bind_group_layout(
             "ray_march_storage_bind_group_layout",
             &BindGroupLayoutEntries::sequential(
-                ShaderStages::FRAGMENT,
+                ShaderStages::COMPUTE,
                 (
                     storage_buffer_read_only::<SdShapeUniformInstance>(false),
                     storage_buffer_read_only::<SdOpUniformInstance>(false),
@@ -75,13 +69,24 @@ impl FromWorld for RayMarchEnginePipeline {
             ),
         );
 
-        let sampler = render_device.create_sampler(&SamplerDescriptor::default());
+        let prepass_layout = render_device.create_bind_group_layout(
+            "ray_march_storage_bind_group_layout",
+            &BindGroupLayoutEntries::sequential(
+                ShaderStages::COMPUTE,
+                (
+                    texture_storage_2d(TextureFormat::R32Float, StorageTextureAccess::WriteOnly),
+                    texture_storage_2d(TextureFormat::Rgba32Float, StorageTextureAccess::WriteOnly),
+                    texture_storage_2d(TextureFormat::Rgba32Float, StorageTextureAccess::WriteOnly),
+                    texture_storage_2d(TextureFormat::R32Float, StorageTextureAccess::WriteOnly),
+                ),
+            ),
+        );
 
         Self {
             common_layout,
             texture_layout,
             storage_layout,
-            sampler,
+            prepass_layout,
         }
     }
 }
@@ -91,37 +96,27 @@ pub struct RayMarchEnginePipelineKey {
     pub hdr: bool,
 }
 
-impl SpecializedRenderPipeline for RayMarchEnginePipeline {
+impl SpecializedComputePipeline for RayMarchEnginePipeline {
     type Key = RayMarchEnginePipelineKey;
 
-    fn specialize(&self, key: Self::Key) -> RenderPipelineDescriptor {
+    fn specialize(&self, key: Self::Key) -> ComputePipelineDescriptor {
         let format = if key.hdr {
             ViewTarget::TEXTURE_FORMAT_HDR
         } else {
             TextureFormat::bevy_default()
         };
 
-        RenderPipelineDescriptor {
+        ComputePipelineDescriptor {
             label: Some("ray_march_pipeline".into()),
             layout: vec![
                 self.common_layout.clone(),
                 self.texture_layout.clone(),
                 self.storage_layout.clone(),
+                self.prepass_layout.clone(),
             ],
-            vertex: fullscreen_shader_vertex_state(),
-            fragment: Some(FragmentState {
-                shader: RAY_MARCH_MAIN_PASS_HANDLE,
-                shader_defs: vec![],
-                entry_point: "fragment".into(),
-                targets: vec![Some(ColorTargetState {
-                    format,
-                    blend: None,
-                    write_mask: ColorWrites::COLOR,
-                })],
-            }),
-            primitive: PrimitiveState::default(),
-            depth_stencil: None,
-            multisample: MultisampleState::default(),
+            shader: RAY_MARCH_MAIN_PASS_HANDLE,
+            shader_defs: vec![],
+            entry_point: "init".into(),
             push_constant_ranges: vec![],
             zero_initialize_workgroup_memory: false,
         }

@@ -1,17 +1,13 @@
-use bevy::asset::{load_internal_asset, weak_handle};
+use bevy::asset::{RenderAssetUsages, load_internal_asset, weak_handle};
 use bevy::ecs::component::HookContext;
 use bevy::ecs::world::DeferredWorld;
 use bevy::prelude::*;
-use bevy::render::render_graph::RenderLabel;
-use bevy::render::{Render, RenderSet};
-use camera::RayMarchCamera;
-use nodes::RayMarchEngineNode;
-use op::{InitSkeinSdRelatinShip, SdOp, SdOpInstance, SdOperatedBy, SdOperatingOn};
-use pipeline::{RayMarchEnginePipeline, RayMarchEnginePipelineKey};
-use shape::{SdMaterial, SdMod, SdShape, SdShapeInstance, SdTransform};
-
+use bevy::render::extract_component::ExtractComponent;
 use bevy::render::extract_resource::{ExtractResource, ExtractResourcePlugin};
+use bevy::render::render_graph::RenderLabel;
+use bevy::render::texture::GpuImage;
 use bevy::render::view::ExtractedView;
+use bevy::render::{Render, RenderSet};
 use bevy::{
     core_pipeline::core_3d::graph::{Core3d, Node3d},
     render::{
@@ -21,6 +17,11 @@ use bevy::{
         render_resource::*,
     },
 };
+use camera::RayMarchCamera;
+use nodes::RayMarchEngineNode;
+use op::{InitSkeinSdRelatinShip, SdOp, SdOpInstance, SdOperatedBy, SdOperatingOn};
+use pipeline::{RayMarchEnginePipeline, RayMarchEnginePipelineKey};
+use shape::{SdMaterial, SdMod, SdShape, SdShapeInstance, SdTransform};
 use upscale::RayMarchUpscalePlugin;
 
 mod nodes;
@@ -36,11 +37,70 @@ const RAY_MARCH_MAIN_PASS_HANDLE: Handle<Shader> =
     weak_handle!("ca4a5dbf-4da9-4779-bcdc-dd3186088e08");
 const RAY_MARCH_UPSCALE_PASS_HANDLE: Handle<Shader> =
     weak_handle!("a780d707-67bf-45b5-b77e-76dad6c17e5f");
-
 const RAY_MARCH_UTILS_HANDLE: Handle<Shader> = weak_handle!("0a9451d0-4b19-453b-98bc-ec755845d8f3");
 const RAY_MARCH_TYPES_HANDLE: Handle<Shader> = weak_handle!("689f31b3-bdf6-4770-b18a-3979d671045c");
 const RAY_MARCH_SELECTORS_HANDLE: Handle<Shader> =
     weak_handle!("47df8567-7cf9-49a2-8939-0e81c2aa2f93");
+
+const WORKGROUP_SIZE: u32 = 8;
+
+#[derive(Component, ExtractComponent, Clone)]
+pub struct RayMarchPrepass {
+    pub depth: Handle<Image>,
+    pub normal: Handle<Image>,
+    pub material: Handle<Image>,
+    pub shadow: Handle<Image>,
+    pub mask: Handle<Image>,
+}
+
+impl RayMarchPrepass {
+    pub fn new(asset_server: &AssetServer) -> Self {
+        let mut r_image = Image::new(
+            Extent3d {
+                width: 3840,
+                height: 2160,
+                depth_or_array_layers: 1,
+            },
+            TextureDimension::D2,
+            vec![0; 33177600],
+            TextureFormat::R32Float,
+            RenderAssetUsages::RENDER_WORLD,
+        );
+        r_image.texture_descriptor.usage = TextureUsages::COPY_DST
+            | TextureUsages::STORAGE_BINDING
+            | TextureUsages::TEXTURE_BINDING;
+
+        let depth = asset_server.add(r_image.clone());
+        let shadow = asset_server.add(r_image.clone());
+        let mask = asset_server.add(r_image);
+
+        let mut rgb_image = Image::new(
+            Extent3d {
+                width: 3840,
+                height: 2160,
+                depth_or_array_layers: 1,
+            },
+            TextureDimension::D2,
+            vec![0; 132710400],
+            TextureFormat::Rgba32Float,
+            RenderAssetUsages::RENDER_WORLD,
+        );
+        rgb_image.texture_descriptor.usage = TextureUsages::COPY_DST
+            | TextureUsages::STORAGE_BINDING
+            | TextureUsages::TEXTURE_BINDING;
+
+        let normal = asset_server.add(rgb_image.clone());
+        let material = asset_server.add(rgb_image);
+
+        Self {
+            depth,
+            normal,
+            material,
+            shadow,
+            mask,
+        }
+    }
+}
 
 pub struct RayMarchEnginePlugin;
 
@@ -86,6 +146,7 @@ impl Plugin for RayMarchEnginePlugin {
             UniformComponentPlugin::<RayMarchCamera>::default(),
             ExtractResourcePlugin::<SdShapeStorage>::default(),
             ExtractResourcePlugin::<SdOpStorage>::default(),
+            ExtractComponentPlugin::<RayMarchPrepass>::default(),
         ))
         .add_systems(PostUpdate, update_ray_march_buffer)
         .add_plugins(RayMarchUpscalePlugin)
@@ -108,7 +169,7 @@ impl Plugin for RayMarchEnginePlugin {
                 Render,
                 prepare_ray_march_pipelines.in_set(RenderSet::Prepare),
             )
-            .init_resource::<SpecializedRenderPipelines<RayMarchEnginePipeline>>()
+            .init_resource::<SpecializedComputePipelines<RayMarchEnginePipeline>>()
             .add_render_graph_node::<ViewNodeRunner<RayMarchEngineNode>>(
                 Core3d,
                 RayMarchPass::MarchPass,
@@ -118,7 +179,7 @@ impl Plugin for RayMarchEnginePlugin {
                 (
                     Node3d::EndMainPass,
                     RayMarchPass::MarchPass,
-                    RayMarchPass::UpscalePass,
+                    RayMarchPass::MainPass,
                     Node3d::Bloom,
                 ),
             );
@@ -133,12 +194,12 @@ impl Plugin for RayMarchEnginePlugin {
 }
 
 #[derive(Component, Deref, DerefMut)]
-pub struct RayMarchEnginePipelineId(pub CachedRenderPipelineId);
+pub struct RayMarchEnginePipelineId(pub CachedComputePipelineId);
 
 fn prepare_ray_march_pipelines(
     mut commands: Commands,
     pipeline_cache: Res<PipelineCache>,
-    mut pipelines: ResMut<SpecializedRenderPipelines<RayMarchEnginePipeline>>,
+    mut pipelines: ResMut<SpecializedComputePipelines<RayMarchEnginePipeline>>,
     post_processing_pipeline: Res<RayMarchEnginePipeline>,
     views: Query<(Entity, &ExtractedView), With<RayMarchCamera>>,
 ) {
@@ -158,7 +219,7 @@ fn prepare_ray_march_pipelines(
 #[derive(Debug, Hash, PartialEq, Eq, Clone, RenderLabel)]
 pub enum RayMarchPass {
     MarchPass,
-    UpscalePass,
+    MainPass,
 }
 
 fn update_ray_march_buffer(
