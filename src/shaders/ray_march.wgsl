@@ -29,6 +29,10 @@ struct RayMarchCamera {
 @group(3) @binding(1) var normal_prepass: texture_storage_2d<rgba32float, write>;
 @group(3) @binding(2) var material_prepass: texture_storage_2d<rgba32float, write>;
 @group(3) @binding(3) var mask_prepass: texture_storage_2d<r32float, write>;
+@group(3) @binding(4) var scaled_depth_prepass: texture_storage_2d<r32float, read_write>;
+@group(3) @binding(5) var scaled_normal_prepass: texture_storage_2d<rgba32float, read_write>;
+@group(3) @binding(6) var scaled_material_prepass: texture_storage_2d<rgba32float, read_write>;
+@group(3) @binding(7) var scaled_mask_prepass: texture_storage_2d<r32float, read_write>;
 
 // TODO: Make op_resut recyce te sapce in te array to get a significant perforamce boost when dealing with large amounts of OPS
 const MAX_OPS: u32 = 8;
@@ -312,7 +316,7 @@ fn compute_sss(
 @compute @workgroup_size(8, 8, 1)
 fn init(@builtin(global_invocation_id) id: vec3u) {
     
-    let buffer_size = vec2f(textureDimensions(depth_prepass));
+    let buffer_size = view.viewport.zw;
 
     let frag_coord = vec2f(id.xy);
     let uv = frag_coord / buffer_size;
@@ -343,15 +347,28 @@ fn init(@builtin(global_invocation_id) id: vec3u) {
 
     let depth = select(ray_depth, -1.0, m.depth > settings.max_distance);
 
-    textureStore(depth_prepass, id.xy, vec4f(vec3f(ray_depth), 1.));
-    textureStore(normal_prepass, id.xy, vec4f(vec3f(m.normal), 1.));
-    textureStore(material_prepass, id.xy, vec4f(vec3f(material), 1.));
+    textureStore(scaled_depth_prepass, id.xy, vec4f(ray_depth));
+    textureStore(scaled_normal_prepass, id.xy, vec4f(vec3f(m.normal), 1.));
+    textureStore(scaled_material_prepass, id.xy, vec4f(vec3f(material), 1.));
 
     let mask = f32(depth < world_depth);
 
-    textureStore(mask_prepass, id.xy, vec4f(vec3f(mask), 1.));
+    textureStore(scaled_mask_prepass, id.xy, vec4f(mask));
 }
 
 @compute @workgroup_size(8, 8, 1)
 fn scale(@builtin(global_invocation_id) id: vec3u) {
+    let buffer_size = view.viewport.zw; 
+    let frag_coord = vec2f(id.xy);
+    let upscaled_coord = (frag_coord - (buffer_size *0.5) ) * settings.depth_scale + (buffer_size *0.5);
+    
+    let depth_pass = textureLoad(scaled_depth_prepass, vec2u(upscaled_coord));
+    let normal_pass = textureLoad(scaled_normal_prepass, vec2u(upscaled_coord));
+    let material_pass = textureLoad(scaled_material_prepass, vec2u(upscaled_coord));
+    let mask_pass = textureLoad(scaled_mask_prepass, vec2u(upscaled_coord));
+
+    textureStore(depth_prepass, id.xy, depth_pass);
+    textureStore(normal_prepass, id.xy, normal_pass);
+    textureStore(material_prepass, id.xy, material_pass);
+    textureStore(mask_prepass, id.xy, mask_pass);
 }

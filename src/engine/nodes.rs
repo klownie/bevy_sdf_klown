@@ -6,8 +6,7 @@ use bevy::render::extract_component::ComponentUniforms;
 use bevy::render::render_asset::RenderAssets;
 use bevy::render::render_graph::NodeRunError;
 use bevy::render::render_resource::{
-    BindGroupEntries, BufferUsages, BufferVec, ComputePassDescriptor, Operations, PipelineCache,
-    RenderPassColorAttachment, RenderPassDescriptor,
+    BindGroupEntries, BufferUsages, BufferVec, ComputePassDescriptor, PipelineCache,
 };
 use bevy::render::renderer::{RenderContext, RenderDevice, RenderQueue};
 use bevy::render::texture::GpuImage;
@@ -26,10 +25,7 @@ use bevy::{
 use super::op::SdOpUniformInstance;
 use super::pipeline::RayMarchEnginePipeline;
 use super::shape::SdShapeUniformInstance;
-use super::{
-    RayMarchCamera, RayMarchEnginePipelineId, RayMarchPrepass, SdOpStorage, SdShapeStorage,
-    WORKGROUP_SIZE,
-};
+use super::{RayMarchCamera, RayMarchPrepass, SdOpStorage, SdShapeStorage, WORKGROUP_SIZE};
 
 #[derive(Default)]
 pub struct RayMarchEngineNode;
@@ -43,7 +39,6 @@ impl ViewNode for RayMarchEngineNode {
         Read<ViewPrepassTextures>,
         Read<ViewUniformOffset>,
         Read<ViewLightsUniformOffset>,
-        Read<RayMarchEnginePipelineId>,
         Read<RayMarchPrepass>,
     );
 
@@ -52,14 +47,13 @@ impl ViewNode for RayMarchEngineNode {
         _graph: &mut RenderGraphContext,
         render_context: &mut RenderContext,
         (
-            view_target,
+            _view_target,
             camera,
             _ray_march_settings,
             settings_index,
             view_prepass,
             view_uniform_offset,
             view_lights_uniform_offset,
-            pipeline_id,
             raymarch_prepass,
         ): QueryItem<Self::ViewQuery>,
         world: &World,
@@ -67,7 +61,15 @@ impl ViewNode for RayMarchEngineNode {
         let ray_march_pipeline = world.resource::<RayMarchEnginePipeline>();
         let pipeline_cache = world.resource::<PipelineCache>();
 
-        let Some(march_pipeline) = pipeline_cache.get_compute_pipeline(**pipeline_id) else {
+        let Some(march_pipeline) =
+            pipeline_cache.get_compute_pipeline(ray_march_pipeline.march_pipeline)
+        else {
+            return Ok(());
+        };
+
+        let Some(scale_pipeline) =
+            pipeline_cache.get_compute_pipeline(ray_march_pipeline.scale_pipeline)
+        else {
             return Ok(());
         };
 
@@ -173,6 +175,34 @@ impl ViewNode for RayMarchEngineNode {
             return Ok(());
         };
 
+        let Some(scaled_depth_map) = world
+            .resource::<RenderAssets<GpuImage>>()
+            .get(raymarch_prepass.scaled_depth.id())
+        else {
+            return Ok(());
+        };
+
+        let Some(scaled_normal_map) = world
+            .resource::<RenderAssets<GpuImage>>()
+            .get(raymarch_prepass.scaled_normal.id())
+        else {
+            return Ok(());
+        };
+
+        let Some(scaled_material_map) = world
+            .resource::<RenderAssets<GpuImage>>()
+            .get(raymarch_prepass.scaled_material.id())
+        else {
+            return Ok(());
+        };
+
+        let Some(scaled_mask_map) = world
+            .resource::<RenderAssets<GpuImage>>()
+            .get(raymarch_prepass.scaled_mask.id())
+        else {
+            return Ok(());
+        };
+
         let prepass_bind_group = render_context.render_device().create_bind_group(
             "marcher_prepass_bind_group",
             &ray_march_pipeline.prepass_layout,
@@ -181,6 +211,10 @@ impl ViewNode for RayMarchEngineNode {
                 &normal_map.texture_view,
                 &material_map.texture_view,
                 &mask_map.texture_view,
+                &scaled_depth_map.texture_view,
+                &scaled_normal_map.texture_view,
+                &scaled_material_map.texture_view,
+                &scaled_mask_map.texture_view,
             )),
         );
 
@@ -196,7 +230,6 @@ impl ViewNode for RayMarchEngineNode {
                     timestamp_writes: None,
                 });
 
-        compute_pass.set_pipeline(march_pipeline);
         compute_pass.set_bind_group(
             0,
             &common_bind_group,
@@ -208,6 +241,15 @@ impl ViewNode for RayMarchEngineNode {
         compute_pass.set_bind_group(1, &texture_bind_group, &[settings_index.index()]);
         compute_pass.set_bind_group(2, &storage_bind_group, &[]);
         compute_pass.set_bind_group(3, &prepass_bind_group, &[]);
+
+        compute_pass.set_pipeline(march_pipeline);
+        compute_pass.dispatch_workgroups(
+            viewport.x.div_ceil(WORKGROUP_SIZE),
+            viewport.y.div_ceil(WORKGROUP_SIZE),
+            1,
+        );
+
+        compute_pass.set_pipeline(scale_pipeline);
         compute_pass.dispatch_workgroups(
             viewport.x.div_ceil(WORKGROUP_SIZE),
             viewport.y.div_ceil(WORKGROUP_SIZE),
