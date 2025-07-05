@@ -8,6 +8,7 @@ use bevy::{
 pub struct RayMarchCamera {
     pub depth_scale: f32,
     pub eps: f32,
+    pub w: f32,
     pub max_distance: f32,
     pub max_steps: u32,
     pub shadow_eps: f32,
@@ -21,6 +22,7 @@ impl Default for RayMarchCamera {
         Self {
             depth_scale: 0.3,
             eps: 0.007,
+            w: 1.,
             max_steps: 500,
             max_distance: 500.,
             shadow_eps: 0.1,

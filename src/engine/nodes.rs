@@ -47,7 +47,7 @@ impl ViewNode for RayMarchEngineNode {
         _graph: &mut RenderGraphContext,
         render_context: &mut RenderContext,
         (
-            view_target,
+            _view_target,
             camera,
             _ray_march_settings,
             settings_index,

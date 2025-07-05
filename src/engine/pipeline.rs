@@ -5,14 +5,13 @@ use bevy::{
         render_resource::{
             BindGroupLayout, BindGroupLayoutEntries, CachedComputePipelineId,
             ComputePipelineDescriptor, PipelineCache, ShaderStages, StorageTextureAccess,
-            TextureFormat, TextureSampleType,
+            TextureFormat,
             binding_types::{
-                storage_buffer_read_only, texture_2d, texture_depth_2d, texture_storage_2d,
-                uniform_buffer,
+                storage_buffer_read_only, texture_depth_2d, texture_storage_2d, uniform_buffer,
             },
         },
         renderer::RenderDevice,
-        view::{ViewTarget, ViewUniform},
+        view::ViewUniform,
     },
 };
 

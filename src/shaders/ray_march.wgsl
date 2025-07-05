@@ -12,6 +12,7 @@
 struct RayMarchCamera {
     depth_scale: f32,
     eps: f32,
+    w: f32,
     max_distance: f32,
     max_steps: u32,
     shadow_eps: f32,
@@ -86,31 +87,42 @@ fn map(p: vec3f) -> DistanceInfo {
     return unpack_distance_info(op_results[n_ops - 1u]);
 }
 
+// FastMarching REF : https://www.shadertoy.com/view/tsjGWm
 fn march(ro: vec3f, rd: vec3f) -> MarchOutput {
     var s: f32 = 0.0;
     var p: vec3f;
     var mat: SdMaterial;
+    var w: f32 = settings.w;
+    var eps: f32 = settings.eps;
+    var stepCtr: u32 = 0u;
 
-    for (var i = 0u; i <= settings.max_steps; i++) {
+    loop {
         p = ro + rd * s;
         let hit = map(p);
-        s += hit.dist;
         mat = hit.material;
 
-        if hit.dist < settings.eps || s > settings.max_distance {
+        if hit.dist < eps || s > settings.max_distance || stepCtr > settings.max_steps {
             break;
         }
+
+        s += hit.dist * w;
+        // Adapt weight 'w' to fit the marching curve
+        w = mix(settings.w, 1.0, pow(0.9, hit.dist));
+        // Increase epsilon dynamically
+        eps *= 1.125;
+
+        stepCtr += 1u;
     }
 
-    if s > settings.max_distance {
-        return MarchOutput(vec3f(0.0), p, s, mat); // No hit
+    if s > settings.max_distance || stepCtr > settings.max_steps {
+        return MarchOutput(vec3f(0.0), p, s, mat); // no hit
     }
 
-    // Backstep
+    // Backstep to improve hit precision
     let backstep = 0.5 * settings.eps;
     p = p - rd * backstep;
 
-    return MarchOutput(normal(p) , p, s - backstep, mat);
+    return MarchOutput(normal(p), p, s - backstep, mat);
 }
 
 fn normal(p: vec3f) -> vec3f {
@@ -186,67 +198,74 @@ fn apply_lighting(
     normal: vec3f,
     material: SdMaterial,
 ) -> vec3f {
-    var result: vec3f = apply_ambient(material);
+    var result: vec3f = vec3f(0.0);
 
-    let cluster_len = arrayLength(&clusterable_objects.data);
+    // === Ambient light ===
+    result += apply_ambient(material);
 
-    for (var i = 0u; i < cluster_len; i++) {
-        let light = clusterable_objects.data[i];
-
-        // Early skip for disabled lights
-        if (light.color_inverse_square_range.w <= 0.0 ||
-            all(light.color_inverse_square_range.rgb == vec3f(0.0))) {
-            continue;
-        }
-
-        let light_pos = light.position_radius.xyz;
-        let to_light = light_pos - p;
-        let dist_sq = dot(to_light, to_light);
-
-        // Skip if too far or degenerate
-        if (dist_sq < 1e-5) {
-            continue;
-        }
-
-        let light_dir = normalize(to_light);
-        let dist = sqrt(dist_sq);
-        let attenuation = getDistanceAttenuation(dist_sq, light.color_inverse_square_range.w);
-        let light_color = light.color_inverse_square_range.rgb / 3000.0;
-
-        let ao = calc_ao(p, normal);
-        let visibility = shadow(
-            p + normal * settings.shadow_eps,
-            light_dir,
-            settings.shadow_eps,
-            min(dist, settings.shadow_max_distance),
-            settings.shadow_max_steps
-        );
-
-        let NdotL = max(dot(normal, light_dir), 0.0);
-        let reflect_dir = reflect(-light_dir, normal);
-        let spec = pow(max(dot(-rd, reflect_dir), 0.0), 64.0);
-        let lighting_factor = (NdotL + material.roughness * spec) * attenuation * visibility * ao;
-
-        let mat_color = material.color.rgb;
-        let standard_contrib = mat_color * light_color * lighting_factor;
-
-        // === Subsurface scattering ===
-        let sss_strength = clamp(material.sss_strength, 0.0, 1.0);
-        var final_contrib = standard_contrib;
-
-        if (sss_strength > 0.001) {
-            let sss_contrib = compute_sss(ro, rd, p, normal, light_dir, light_color, material);
-            final_contrib = mix(standard_contrib, sss_contrib * attenuation * visibility * ao, sss_strength);
-        }
-
-        result += final_contrib;
+    // === Loop over all clusterable lights ===
+    for (var i = 0u; i < arrayLength(&clusterable_objects.data); i++) {
+        result += apply_light_contribution(i, ro, rd, p, normal, material);
     }
 
     return result;
 }
 
 fn apply_ambient(material: SdMaterial) -> vec3f {
-    return material.color.rgb * (lights.ambient_color.rgb / 1000.0);
+    let ambient = lights.ambient_color.rgb / 1000.0;
+    return material.color.rgb * ambient;
+}
+
+fn should_skip_light(light: ClusterableObject) -> bool {
+    return light.color_inverse_square_range.w <= 0.0 ||
+           all(light.color_inverse_square_range.rgb == vec3f(0.0));
+}
+
+fn apply_light_contribution(
+    i: u32,
+    ro: vec3f,
+    rd: vec3f,
+    p: vec3f,
+    normal: vec3f,
+    material: SdMaterial,
+) -> vec3f {
+    let light = clusterable_objects.data[i];
+    let light_pos = light.position_radius.xyz;
+    let light_color = light.color_inverse_square_range.rgb / 3000.0;
+    let light_range_inv_sq = light.color_inverse_square_range.w;
+
+    let to_light = light_pos - p;
+    let dist_sq = dot(to_light, to_light);
+    let light_dir = normalize(to_light);
+    let dist = sqrt(dist_sq);
+
+    // === AO and Shadowing ===
+    let ao = calc_ao(p, normal);
+    let visibility = shadow(
+        p + normal * settings.shadow_eps,
+        light_dir,
+        settings.shadow_eps,
+        min(dist, settings.shadow_max_distance),
+        settings.shadow_max_steps
+    );
+
+    let attenuation = getDistanceAttenuation(dist_sq, light_range_inv_sq);
+    let diff = max(dot(normal, light_dir), 0.0);
+    let mat_color = material.color.rgb;
+
+    // === Subsurface Scattering Approximation ===
+    let sss_contrib = compute_sss(ro, rd, p, normal, light_dir, light_color, material);
+
+    // === Diffuse and Specular ===
+    let reflect_dir = reflect(-light_dir, normal);
+    let spec = pow(max(dot(-rd, reflect_dir), 0.0), 64.0);
+    let specular_strength = material.roughness;
+    let lighting = (diff + specular_strength * spec) * attenuation * visibility * ao;
+
+    // === Combine ===
+    let standard_contrib = mat_color * light_color * lighting;
+    let blended = mix(standard_contrib, sss_contrib * attenuation * visibility * ao, clamp(material.sss_strength, 0.0, 1.0));
+    return blended;
 }
 
 fn compute_sss(
