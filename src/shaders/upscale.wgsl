@@ -12,12 +12,18 @@ struct RayMarchCamera {
 
 @group(0) @binding(2) var<uniform> settings: RayMarchCamera;
 
-@group(1) @binding(0) var march_texture: texture_2d<f32>;
+@group(1) @binding(0) var march_material_texture: texture_2d<f32>;
+@group(1) @binding(1) var march_mask_texture: texture_2d<f32>;
 
 @fragment
 fn fragment(in: FullscreenVertexOutput) -> @location(0) vec4<f32> {
     let uv = in.uv;
     
-    let color = textureSample(march_texture, texture_sampler, uv);
-    return color;
+    let mask = bool(textureSample(march_mask_texture, texture_sampler, uv).x);
+
+    let mat = textureSample(march_material_texture, texture_sampler, uv);
+    
+    let bg = textureSample(screen_texture, texture_sampler, uv);
+
+    return select(bg, mat, mask);
 }

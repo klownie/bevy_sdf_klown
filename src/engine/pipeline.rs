@@ -5,13 +5,14 @@ use bevy::{
         render_resource::{
             BindGroupLayout, BindGroupLayoutEntries, CachedComputePipelineId,
             ComputePipelineDescriptor, PipelineCache, ShaderStages, StorageTextureAccess,
-            TextureFormat,
+            TextureFormat, TextureSampleType,
             binding_types::{
-                storage_buffer_read_only, texture_depth_2d, texture_storage_2d, uniform_buffer,
+                storage_buffer_read_only, texture_2d, texture_depth_2d, texture_storage_2d,
+                uniform_buffer,
             },
         },
         renderer::RenderDevice,
-        view::ViewUniform,
+        view::{ViewTarget, ViewUniform},
     },
 };
 
@@ -56,7 +57,14 @@ impl FromWorld for RayMarchEnginePipeline {
             "ray_march_texture_bind_group_layout",
             &BindGroupLayoutEntries::sequential(
                 ShaderStages::COMPUTE,
-                (texture_depth_2d(), uniform_buffer::<RayMarchCamera>(true)),
+                (
+                    // texture_storage_2d(
+                    //     ViewTarget::TEXTURE_FORMAT_HDR,
+                    //     StorageTextureAccess::WriteOnly,
+                    // ),
+                    texture_depth_2d(),
+                    uniform_buffer::<RayMarchCamera>(true),
+                ),
             ),
         );
 

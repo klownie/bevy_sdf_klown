@@ -126,11 +126,17 @@ impl ViewNode for EndPassNode {
         else {
             return Ok(());
         };
+        let Some(mask_map) = world
+            .resource::<RenderAssets<GpuImage>>()
+            .get(raymarch_prepass.mask.id())
+        else {
+            return Ok(());
+        };
 
         let prepass_bind_group = render_context.render_device().create_bind_group(
             "marcher_prepass_bind_group",
             &post_process_pipeline.prepass_layout,
-            &BindGroupEntries::single(&material_map.texture_view),
+            &BindGroupEntries::sequential((&material_map.texture_view, &mask_map.texture_view)),
         );
 
         // Begin the render pass
@@ -181,10 +187,13 @@ impl FromWorld for EndPassPipeline {
         let sampler = render_device.create_sampler(&SamplerDescriptor::default());
 
         let prepass_layout = render_device.create_bind_group_layout(
-            "uend_pass_prepass_bind_group_layout",
+            "end_pass_prepass_bind_group_layout",
             &BindGroupLayoutEntries::sequential(
                 ShaderStages::FRAGMENT,
-                (texture_2d(TextureSampleType::Float { filterable: true }),),
+                (
+                    texture_2d(TextureSampleType::Float { filterable: true }),
+                    texture_2d(TextureSampleType::Float { filterable: true }),
+                ),
             ),
         );
 

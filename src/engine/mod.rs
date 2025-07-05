@@ -47,25 +47,22 @@ pub struct RayMarchPrepass {
     pub depth: Handle<Image>,
     pub normal: Handle<Image>,
     pub material: Handle<Image>,
-    pub shadow: Handle<Image>,
     pub mask: Handle<Image>,
     pub scaled_depth: Handle<Image>,
     pub scaled_normal: Handle<Image>,
     pub scaled_material: Handle<Image>,
-    pub scaled_shadow: Handle<Image>,
     pub scaled_mask: Handle<Image>,
 }
 
 impl RayMarchPrepass {
     pub fn new(asset_server: &AssetServer) -> Self {
-        let mut r_image = Image::new(
+        let mut r_image = Image::new_uninit(
             Extent3d {
                 width: 3840,
                 height: 2160,
                 depth_or_array_layers: 1,
             },
             TextureDimension::D2,
-            vec![0; 33177600],
             TextureFormat::R32Float,
             RenderAssetUsages::RENDER_WORLD,
         );
@@ -74,20 +71,17 @@ impl RayMarchPrepass {
             | TextureUsages::TEXTURE_BINDING;
 
         let depth = asset_server.add(r_image.clone());
-        let shadow = asset_server.add(r_image.clone());
         let mask = asset_server.add(r_image.clone());
         let scaled_depth = asset_server.add(r_image.clone());
-        let scaled_shadow = asset_server.add(r_image.clone());
         let scaled_mask = asset_server.add(r_image);
 
-        let mut rgb_image = Image::new(
+        let mut rgb_image = Image::new_uninit(
             Extent3d {
                 width: 3840,
                 height: 2160,
                 depth_or_array_layers: 1,
             },
             TextureDimension::D2,
-            vec![0; 132710400],
             TextureFormat::Rgba32Float,
             RenderAssetUsages::RENDER_WORLD,
         );
@@ -104,12 +98,10 @@ impl RayMarchPrepass {
             depth,
             normal,
             material,
-            shadow,
             mask,
             scaled_depth,
             scaled_normal,
             scaled_material,
-            scaled_shadow,
             scaled_mask,
         }
     }

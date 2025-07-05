@@ -89,6 +89,7 @@ pub struct SdOperatedBy(pub Entity);
 pub struct SdOperatingOn(Vec<Entity>);
 
 impl SdOperatingOn {
+    #[inline]
     pub fn get_sd_argunments(self) -> (Entity, Entity) {
         (self.0[0], self.0[1])
     }
