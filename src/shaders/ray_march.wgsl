@@ -18,6 +18,7 @@ struct RayMarchCamera {
     shadow_eps: f32,
     shadow_max_steps: u32,
     shadow_max_distance: f32,
+    shadow_softness: f32,
     normal_eps: f32
 }
 @group(1) @binding(1) var<uniform> settings: RayMarchCamera;
@@ -36,7 +37,7 @@ struct RayMarchCamera {
 @group(3) @binding(7) var scaled_mask_prepass: texture_storage_2d<r32float, read_write>;
 
 // TODO: Make op_resut recyce te sapce in te array to get a significant perforamce boost when dealing with large amounts of OPS
-const MAX_OPS: u32 = 8;
+const MAX_OPS: u32 = 6;
 var<private> op_results: array<DistanceInfoPacked, MAX_OPS>;
 
 fn shape_to_dist(instance: SdShapeInstance, p: vec3f) -> DistanceInfo {
@@ -164,12 +165,12 @@ fn softshadow(
 fn shadow(
     ro: vec3f,
     rd: vec3f, 
-    mint: f32, 
-    maxt: f32, 
+    eps: f32, 
+    max_dist: f32, 
     max_steps: u32
 ) -> f32 {
-    var t = mint;
-    for (var i = 0u; i < max_steps && t < maxt; i++) {
+    var t = eps;
+    for (var i = 0u; i < max_steps && t < max_dist; i++) {
         let h = map(ro + rd * t).dist;
         if (h < 0.001) {
             return 0.0;
@@ -194,7 +195,6 @@ fn calc_ao(p: vec3f, n: vec3f) -> f32 {
 fn apply_lighting(
     ro: vec3f,
     rd: vec3f,
-    p: vec3f,
     normal: vec3f,
     material: SdMaterial,
 ) -> vec3f {
@@ -205,7 +205,7 @@ fn apply_lighting(
 
     // === Loop over all clusterable lights ===
     for (var i = 0u; i < arrayLength(&clusterable_objects.data); i++) {
-        result += apply_light_contribution(i, ro, rd, p, normal, material);
+        result += apply_light_contribution(i, ro, rd, normal, material);
     }
 
     return result;
@@ -225,7 +225,6 @@ fn apply_light_contribution(
     i: u32,
     ro: vec3f,
     rd: vec3f,
-    p: vec3f,
     normal: vec3f,
     material: SdMaterial,
 ) -> vec3f {
@@ -234,27 +233,40 @@ fn apply_light_contribution(
     let light_color = light.color_inverse_square_range.rgb / 3000.0;
     let light_range_inv_sq = light.color_inverse_square_range.w;
 
-    let to_light = light_pos - p;
+    let to_light = light_pos - ro ;
     let dist_sq = dot(to_light, to_light);
     let light_dir = normalize(to_light);
     let dist = sqrt(dist_sq);
 
     // === AO and Shadowing ===
-    let ao = calc_ao(p, normal);
+    
+    let ao = calc_ao(ro, normal);
+
     let visibility = shadow(
-        p + normal * settings.shadow_eps,
+        ro + normal * settings.shadow_eps,
         light_dir,
         settings.shadow_eps,
         min(dist, settings.shadow_max_distance),
         settings.shadow_max_steps
     );
 
+    // let visibility = softshadow(
+    //     ro + normal * settings.shadow_eps,
+    //     light_dir,
+    //     settings.shadow_eps,
+    //     min(dist, settings.shadow_max_distance),
+    //     settings.shadow_max_steps,
+    //     settings.shadow_softness,
+    // );
+
+
+
     let attenuation = getDistanceAttenuation(dist_sq, light_range_inv_sq);
     let diff = max(dot(normal, light_dir), 0.0);
     let mat_color = material.color.rgb;
 
     // === Subsurface Scattering Approximation ===
-    let sss_contrib = compute_sss(ro, rd, p, normal, light_dir, light_color, material);
+    let sss_contrib = compute_sss(ro, rd, normal, light_dir, light_color, material);
 
     // === Diffuse and Specular ===
     let reflect_dir = reflect(-light_dir, normal);
@@ -264,14 +276,13 @@ fn apply_light_contribution(
 
     // === Combine ===
     let standard_contrib = mat_color * light_color * lighting;
-    let blended = mix(standard_contrib, sss_contrib * attenuation * visibility * ao, clamp(material.sss_strength, 0.0, 1.0));
+    let blended = mix(standard_contrib, sss_contrib * attenuation * visibility * ao, material.sss_strength);
     return blended;
 }
 
 fn compute_sss(
     ro: vec3f,
     rd: vec3f,
-    p: vec3f,
     normal: vec3f,
     light_dir: vec3f,
     light_color: vec3f,
@@ -282,7 +293,6 @@ fn compute_sss(
         return sss_contrib;
     }
 
-    let sss_radius = material.sss_strength;
     let scattering_dist = max(vec3f(0.05), material.sss_radius);
     let tint = material.color.rgb;
     let sigma_s = vec3f(1.0) / scattering_dist;
@@ -296,7 +306,7 @@ fn compute_sss(
         dt = (mult - 1.0) * t;
         if (t > 20.0 * clength) { break; }
 
-        let d0 = map(ro + t * rd).dist;
+        let d0 = map(ro  - normal/* <-- ??????? */ + t * rd).dist;
         if (d0 > 0.0) { break; }
 
         let l1 = clength;
@@ -346,7 +356,7 @@ fn init(@builtin(global_invocation_id) id: vec3u) {
     let m = march(ro, rd);
     let world_depth = textureLoad(depth_texture, vec2u(downscaled_coord), 0);
 
-    let material = apply_lighting(m.pos -0.1*m.normal, rd, m.pos, m.normal, m.material);
+    let material = apply_lighting(m.pos, rd, m.normal, m.material);
 
     let p_clip = view.clip_from_world * vec4f(m.pos, 1.0);
     let p_ndc = p_clip / p_clip.w;

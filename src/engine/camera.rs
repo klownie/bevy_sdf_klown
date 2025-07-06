@@ -14,6 +14,7 @@ pub struct RayMarchCamera {
     pub shadow_eps: f32,
     pub shadow_max_steps: u32,
     pub shadow_max_distance: f32,
+    pub shadow_softness: f32,
     pub normal_eps: f32,
 }
 
@@ -28,6 +29,7 @@ impl Default for RayMarchCamera {
             shadow_eps: 0.1,
             shadow_max_steps: 500,
             shadow_max_distance: 100.,
+            shadow_softness: 0.02,
             normal_eps: 0.01,
         }
     }
