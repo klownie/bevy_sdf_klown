@@ -1,11 +1,11 @@
 [package]
-name = "bevy_sdf"
+name = "bevy_sdf_klown"
 version = "0.1.0"
 edition = "2024"
 authors = ["Audrick Yeu <audrickyeu@proton.me>"]
 description = "General Pupose sdf plugin for bevy"
 license = "MIT OR Apache-2.0"
-repository = "https://github.com/yourname/your_repo"
+repository = "https://github.com/klownie/bevy_sdf"
 readme = "README.md"
 keywords = ["bevy", "sdf", "graphics", "ray_marching"]
 categories = ["graphics", "rendering", "games"]

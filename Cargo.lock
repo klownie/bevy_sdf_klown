@@ -1242,7 +1242,7 @@ dependencies = [
 ]
 
 [[package]]
-name = "bevy_sdf"
+name = "bevy_sdf_klown"
 version = "0.1.0"
 dependencies = [
  "bevy",
