@@ -19,6 +19,7 @@ Any help would be greatly apreciated
 - [ ] Compatibility with bevy_solair (ray tracing)
 - [ ] Compatibility as a WESL shader
 - [ ] make the shape have instanciable
+- [ ] make the max  amount of SdOp dynamicaly changeable instead of hardcoded
 
 ## Compatibility
 

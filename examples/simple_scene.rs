@@ -29,11 +29,12 @@ fn setup(mut commands: Commands, mut materials: ResMut<Assets<StandardMaterial>>
     // RayMarch Scene
     //
     // This example scene can be illustarted like this:
+    //
     // SmoothUnion/
-    // ├─ PlaneShape
-    // ├─ Union/
-    // │  ├─ BoxShape
-    // │  ├─ CapsuleShape
+    // ├── PlaneShape
+    // └── Union/
+    //    ├── BoxShape
+    //    └── CapsuleShape
 
     // WARN: A SdOp will only take in acount TOW RelationShips to it using SdOperatedBy
     // any amount SdOperatedBy used above or under that can BREAK the raymarcher in unexpected ways
