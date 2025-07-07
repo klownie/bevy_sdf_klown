@@ -11,14 +11,14 @@ Any help would be greatly apreciated
 
 - [X] compatibility with bevy-skein
 - [X] modifiable SDF during the games execution
-- [] Custom hard coded SDF Shapes
+- [ ] Custom hard coded SDF Shapes
 - [X] PBR Material (color, roughness, fresnel, metallic)
 - [X] Sub Surface Material Shader for SDF
-- [] Custom hard coded SDF Shaders
+- [ ] Custom hard coded SDF Shaders
 - [X] SDF Modifiers
 - [] Compatibility with bevy_solair (ray tracing)
-- [] Compatibility as a WESL shader
-- [] make the shape have instanciable
+- [ ] Compatibility as a WESL shader
+- [ ] make the shape have instanciable
 
 ## Compatibility
 

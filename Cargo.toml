@@ -2,11 +2,18 @@
 name = "bevy_sdf"
 version = "0.1.0"
 edition = "2024"
+authors = ["Audrick Yeu <audrickyeu@proton.me>"]
+description = "General Pupose sdf plugin for bevy"
+license = "MIT OR Apache-2.0"
+repository = "https://github.com/yourname/your_repo"
+readme = "README.md"
+keywords = ["bevy", "sdf", "graphics", "ray_marching"]
+categories = ["graphics", "rendering", "games"]
 
 [dependencies]
 bevy = { version = "0.16.1", default-features = false, features = [
     "bevy_asset",
-    "bevy_color",
+    "bevy_color", 
     "bevy_core_pipeline",
     "bevy_gilrs",
     "bevy_gizmos",
