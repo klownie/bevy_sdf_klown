@@ -1,9 +1,8 @@
-use bevy::asset::{RenderAssetUsages, load_internal_asset, weak_handle};
+use bevy::asset::{load_internal_asset, weak_handle};
 use bevy::ecs::component::HookContext;
 use bevy::ecs::world::DeferredWorld;
 use bevy::prelude::*;
 use bevy::render::camera::ExtractedCamera;
-use bevy::render::extract_component::ExtractComponent;
 use bevy::render::extract_resource::{ExtractResource, ExtractResourcePlugin};
 use bevy::render::render_graph::RenderLabel;
 use bevy::render::renderer::RenderDevice;
@@ -18,9 +17,8 @@ use bevy::{
     },
 };
 use camera::RayMarchCamera;
-use log::{info, warn};
 use nodes::RayMarchEngineNode;
-use op::{InitSkeinSdRelatinShip, SdOp, SdOpInstance, SdOperatedBy, SdOperatingOn};
+use op::{InitSkeinSdRelationShip, SdOp, SdOpInstance, SdOperatedBy, SdOperatingOn};
 use pipeline::RayMarchEnginePipeline;
 use shape::{SdMaterial, SdMod, SdShape, SdShapeInstance, SdTransform};
 use write_back::MarchWriteBackPlugin;
@@ -42,7 +40,6 @@ const RAY_MARCH_UTILS_HANDLE: Handle<Shader> = weak_handle!("0a9451d0-4b19-453b-
 const RAY_MARCH_TYPES_HANDLE: Handle<Shader> = weak_handle!("689f31b3-bdf6-4770-b18a-3979d671045c");
 const RAY_MARCH_SELECTORS_HANDLE: Handle<Shader> =
     weak_handle!("47df8567-7cf9-49a2-8939-0e81c2aa2f93");
-const BEVY_WESL_HANDLE: Handle<Shader> = weak_handle!("51841252-2746-4825-bcad-80a15ee14390");
 
 const WORKGROUP_SIZE: u32 = 8;
 
@@ -300,13 +297,6 @@ impl Plugin for RayMarchEnginePlugin {
             Shader::from_wgsl
         );
 
-        // load_internal_asset!(
-        //     app,
-        //     BEVY_WESL_HANDLE,
-        //     "../shaders/core.wesl",
-        //     Shader::from_wesl
-        // );
-
         app.add_plugins((
             ExtractComponentPlugin::<RayMarchCamera>::default(),
             UniformComponentPlugin::<RayMarchCamera>::default(),
@@ -320,7 +310,7 @@ impl Plugin for RayMarchEnginePlugin {
         .register_type::<SdOp>()
         .register_type::<SdMod>()
         .register_type::<SdIndex>()
-        .register_type::<InitSkeinSdRelatinShip>()
+        .register_type::<InitSkeinSdRelationShip>()
         .register_type::<SdMaterial>()
         .init_resource::<SdShapeStorage>()
         .init_resource::<SdOpStorage>();

@@ -7,7 +7,6 @@ use bevy::{
     render::{
         Render, RenderApp, RenderSet,
         extract_component::{ComponentUniforms, DynamicUniformIndex},
-        render_asset::RenderAssets,
         render_graph::{
             NodeRunError, RenderGraphApp, RenderGraphContext, ViewNode, ViewNodeRunner,
         },
@@ -16,7 +15,6 @@ use bevy::{
             *,
         },
         renderer::{RenderContext, RenderDevice},
-        texture::GpuImage,
         view::{ExtractedView, ViewTarget},
     },
 };

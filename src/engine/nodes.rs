@@ -3,13 +3,11 @@ use bevy::pbr::{GlobalClusterableObjectMeta, LightMeta};
 use bevy::prelude::*;
 use bevy::render::camera::ExtractedCamera;
 use bevy::render::extract_component::ComponentUniforms;
-use bevy::render::render_asset::RenderAssets;
 use bevy::render::render_graph::NodeRunError;
 use bevy::render::render_resource::{
     BindGroupEntries, BufferUsages, BufferVec, ComputePassDescriptor, PipelineCache,
 };
 use bevy::render::renderer::{RenderContext, RenderQueue};
-use bevy::render::texture::GpuImage;
 use bevy::render::view::ViewUniforms;
 use bevy::{
     core_pipeline::prepass::ViewPrepassTextures,
@@ -47,7 +45,7 @@ impl ViewNode for RayMarchEngineNode {
         _graph: &mut RenderGraphContext,
         render_context: &mut RenderContext,
         (
-            view_target,
+            _view_target,
             camera,
             _ray_march_settings,
             settings_index,

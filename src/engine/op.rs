@@ -101,12 +101,12 @@ impl SdOperatingOn {
 #[derive(Component, Reflect)]
 #[reflect(Component)]
 #[component(on_add = detect_op)]
-pub struct InitSkeinSdRelatinShip;
+pub struct InitSkeinSdRelationShip;
 
 fn detect_op(mut world: DeferredWorld, HookContext { entity, .. }: HookContext) {
     {
         let mut commands = world.commands();
-        commands.entity(entity).remove::<InitSkeinSdRelatinShip>();
+        commands.entity(entity).remove::<InitSkeinSdRelationShip>();
     }
 
     let parent = match world.get::<ChildOf>(entity) {
