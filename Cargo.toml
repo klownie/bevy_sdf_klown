@@ -45,5 +45,7 @@ bevy = { version = "0.16.1", default-features = false, features = [
 ]}
 bevy_egui = "0.34"
 bevy-inspector-egui = "0.31"
+bevy_panorbit_camera = "0.27.0"
+
 
 log = { version = "0.4", features = ["max_level_debug", "release_max_level_warn"] }

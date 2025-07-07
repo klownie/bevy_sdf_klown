@@ -2,6 +2,7 @@ use bevy::core_pipeline::prepass::DepthPrepass;
 use bevy::prelude::*;
 use bevy_egui::EguiPlugin;
 use bevy_inspector_egui::quick::WorldInspectorPlugin;
+use bevy_panorbit_camera::{PanOrbitCamera, PanOrbitCameraPlugin};
 use bevy_sdf_klown::RayMarchingPlugin;
 use bevy_sdf_klown::engine::SdIndex;
 use bevy_sdf_klown::engine::shape::SdMod;
@@ -20,6 +21,7 @@ fn main() {
                 enable_multipass_for_primary_context: true,
             },
             WorldInspectorPlugin::new(),
+            PanOrbitCameraPlugin,
         ))
         .add_systems(Startup, setup)
         .run();
@@ -104,6 +106,7 @@ fn setup(mut commands: Commands, mut materials: ResMut<Assets<StandardMaterial>>
             msaa_writeback: false,
             ..default()
         },
+        PanOrbitCamera::default(),
         Msaa::Off,
         DepthPrepass::default(),
         Transform::from_xyz(-2.0, 2.5, 5.0).looking_at(Vec3::ZERO, Vec3::Y),
