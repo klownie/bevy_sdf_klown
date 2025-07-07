@@ -18,6 +18,7 @@ use bevy::{
     },
 };
 use camera::RayMarchCamera;
+use log::{info, warn};
 use nodes::RayMarchEngineNode;
 use op::{InitSkeinSdRelatinShip, SdOp, SdOpInstance, SdOperatedBy, SdOperatingOn};
 use pipeline::RayMarchEnginePipeline;
@@ -299,12 +300,12 @@ impl Plugin for RayMarchEnginePlugin {
             Shader::from_wgsl
         );
 
-        load_internal_asset!(
-            app,
-            BEVY_WESL_HANDLE,
-            "../shaders/core.wesl",
-            Shader::from_wesl
-        );
+        // load_internal_asset!(
+        //     app,
+        //     BEVY_WESL_HANDLE,
+        //     "../shaders/core.wesl",
+        //     Shader::from_wesl
+        // );
 
         app.add_plugins((
             ExtractComponentPlugin::<RayMarchCamera>::default(),
@@ -426,6 +427,8 @@ fn update_ray_march_buffer(
 
         sd_op_buffer.data.push(SdOpInstance { op, lhs, rhs });
     }
+    // info!("{:#?}", sd_op_buffer.data);
+    // info!("{:#?}", sd_shape_buffer.data);
 }
 
 #[derive(Resource, Reflect, Default, Clone, ExtractResource)]
@@ -443,7 +446,7 @@ pub struct SdOpStorage {
 #[derive(Reflect, Component, Ord, PartialOrd, PartialEq, Eq, Default, Debug, Clone, Copy)]
 #[component(on_add = update_sd_index)]
 #[reflect(Component)]
-pub struct SdIndex(u32);
+pub struct SdIndex(pub u32);
 
 fn update_sd_index(mut world: DeferredWorld, HookContext { entity, .. }: HookContext) {
     let index = {

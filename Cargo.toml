@@ -1,13 +1,42 @@
 [package]
 name = "bevy_sdf"
-version = "1.0.0"
+version = "0.1.0"
 edition = "2024"
 
 [dependencies]
-bevy = { version = "0.16", default-features = false, features = [
+bevy = { version = "0.16.1", default-features = false, features = [
+    "bevy_asset",
+    "bevy_color",
     "bevy_core_pipeline",
+    "bevy_gilrs",
+    "bevy_gizmos",
+    "bevy_gltf",
+    "bevy_mesh_picking_backend",
     "bevy_pbr",
+    "bevy_picking",
     "bevy_render",
-    "shader_format_wesl"
+    "bevy_remote",
+    "bevy_scene",
+    "bevy_state",
+    "bevy_text",
+    "bevy_ui",
+    "bevy_ui_picking_backend",
+    "bevy_window",
+    "bevy_winit",
+    "custom_cursor",
+    "default_font",
+    "hdr",
+    "multi_threaded",
+    "png",
+    "smaa_luts",
+    "sysinfo_plugin",
+    "tonemapping_luts",
+    "webgl2",
+    "experimental_pbr_pcss",
+    "meshlet",
+    "meshlet_processor"
 ]}
+bevy_egui = "0.34"
+bevy-inspector-egui = "0.31"
 
+log = { version = "0.4", features = ["max_level_debug", "release_max_level_warn"] }

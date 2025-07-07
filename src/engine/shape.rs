@@ -27,7 +27,7 @@ pub struct SdShapeUniform {
 
 #[repr(u32)]
 #[derive(Reflect, Component, Debug, Clone, Copy)]
-#[require(SdMod::Empty)]
+#[require(Name::new("SdShape"), SdMod::Empty, Transform)]
 #[reflect(Component)]
 pub enum SdShape {
     Sphere {

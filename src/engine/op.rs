@@ -31,10 +31,11 @@ pub struct SdOpUniform {
 }
 
 #[repr(u8)]
-#[derive(Reflect, Component, Debug, Clone, Copy)]
-#[require(SdIndex)]
+#[derive(Reflect, Component, Debug, Clone, Copy, Default)]
+#[require(Name::new("SdOp"), SdIndex)]
 #[reflect(Component)]
 pub enum SdOp {
+    #[default]
     Union,
     Subtract {
         rev: bool,
@@ -95,7 +96,7 @@ impl SdOperatingOn {
     }
 }
 
-//NOTE: A helper for skein that will automatically setup the SDF relationships
+// NOTE: A helper for skein that will automatically setup the SDF relationships
 // This must be added to every SdOp and SdShape in the skein scene
 #[derive(Component, Reflect)]
 #[reflect(Component)]
@@ -104,8 +105,8 @@ pub struct InitSkeinSdRelatinShip;
 
 fn detect_op(mut world: DeferredWorld, HookContext { entity, .. }: HookContext) {
     {
-        let mut command = world.commands();
-        command.entity(entity).remove::<InitSkeinSdRelatinShip>();
+        let mut commands = world.commands();
+        commands.entity(entity).remove::<InitSkeinSdRelatinShip>();
     }
 
     let parent = match world.get::<ChildOf>(entity) {

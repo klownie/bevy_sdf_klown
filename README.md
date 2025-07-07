@@ -17,6 +17,11 @@ Any help would be greatly apreciated
 - [] Custom hard coded SDF Shaders
 - [X] SDF Modifiers
 - [] Compatibility with bevy_solair (ray tracing)
-- [] Compatibility as a WESL shader Lib
+- [] Compatibility as a WESL shader
+- [] make the shape have instanciable
 
-# How to use with bevy_skein 
+## Compatibility
+
+| bevy_sdf | bevy |
+|----------|------|
+| 0.1.0    | 0.16 |
