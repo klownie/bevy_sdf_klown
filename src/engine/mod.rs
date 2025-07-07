@@ -2,9 +2,12 @@ use bevy::asset::{RenderAssetUsages, load_internal_asset, weak_handle};
 use bevy::ecs::component::HookContext;
 use bevy::ecs::world::DeferredWorld;
 use bevy::prelude::*;
+use bevy::render::camera::ExtractedCamera;
 use bevy::render::extract_component::ExtractComponent;
 use bevy::render::extract_resource::{ExtractResource, ExtractResourcePlugin};
 use bevy::render::render_graph::RenderLabel;
+use bevy::render::renderer::RenderDevice;
+use bevy::render::{Render, RenderSet};
 use bevy::{
     core_pipeline::core_3d::graph::{Core3d, Node3d},
     render::{
@@ -15,16 +18,16 @@ use bevy::{
     },
 };
 use camera::RayMarchCamera;
-use end_pass::MarchEndPassPlugin;
 use nodes::RayMarchEngineNode;
 use op::{InitSkeinSdRelatinShip, SdOp, SdOpInstance, SdOperatedBy, SdOperatingOn};
 use pipeline::RayMarchEnginePipeline;
 use shape::{SdMaterial, SdMod, SdShape, SdShapeInstance, SdTransform};
+use write_back::MarchWriteBackPlugin;
 
 mod nodes;
 mod pipeline;
 
-mod end_pass;
+mod write_back;
 
 pub mod camera;
 pub mod op;
@@ -32,7 +35,7 @@ pub mod shape;
 
 const RAY_MARCH_MAIN_PASS_HANDLE: Handle<Shader> =
     weak_handle!("ca4a5dbf-4da9-4779-bcdc-dd3186088e08");
-const RAY_MARCH_END_PASS_HANDLE: Handle<Shader> =
+const MARCH_WRITE_BACK_PASS_HANDLE: Handle<Shader> =
     weak_handle!("a780d707-67bf-45b5-b77e-76dad6c17e5f");
 const RAY_MARCH_UTILS_HANDLE: Handle<Shader> = weak_handle!("0a9451d0-4b19-453b-98bc-ec755845d8f3");
 const RAY_MARCH_TYPES_HANDLE: Handle<Shader> = weak_handle!("689f31b3-bdf6-4770-b18a-3979d671045c");
@@ -42,59 +45,208 @@ const BEVY_WESL_HANDLE: Handle<Shader> = weak_handle!("51841252-2746-4825-bcad-8
 
 const WORKGROUP_SIZE: u32 = 8;
 
-#[derive(Component, ExtractComponent, Clone)]
+#[derive(Component)]
 pub struct RayMarchPrepass {
-    pub depth: Handle<Image>,
-    pub normal: Handle<Image>,
-    pub material: Handle<Image>,
-    pub mask: Handle<Image>,
-    pub scaled_depth: Handle<Image>,
-    pub scaled_normal: Handle<Image>,
-    pub scaled_material: Handle<Image>,
-    pub scaled_mask: Handle<Image>,
+    pub depth: TextureView,
+    pub normal: TextureView,
+    pub material: TextureView,
+    pub mask: TextureView,
+    pub scaled_depth: TextureView,
+    pub scaled_normal: TextureView,
+    pub scaled_material: TextureView,
+    pub scaled_mask: TextureView,
+    pub view_size: UVec2,
 }
 
-impl RayMarchPrepass {
-    pub fn new(asset_server: &AssetServer) -> Self {
-        let mut r_image = Image::new_uninit(
-            Extent3d {
-                width: 3840,
-                height: 2160,
-                depth_or_array_layers: 1,
-            },
-            TextureDimension::D2,
-            TextureFormat::R32Float,
-            RenderAssetUsages::RENDER_WORLD,
-        );
-        r_image.texture_descriptor.usage = TextureUsages::COPY_DST
-            | TextureUsages::STORAGE_BINDING
-            | TextureUsages::TEXTURE_BINDING;
+fn prepare_ray_march_resources(
+    query: Query<(Entity, &ExtractedCamera, Option<&RayMarchPrepass>), With<RayMarchCamera>>,
+    render_device: Res<RenderDevice>,
+    mut commands: Commands,
+) {
+    for (entity, camera, ray_march_resources) in &query {
+        let Some(view_size) = camera.physical_viewport_size else {
+            continue;
+        };
 
-        let depth = asset_server.add(r_image.clone());
-        let mask = asset_server.add(r_image.clone());
-        let scaled_depth = asset_server.add(r_image.clone());
-        let scaled_mask = asset_server.add(r_image);
+        if ray_march_resources.map(|r| r.view_size) == Some(view_size) {
+            continue;
+        }
 
-        let mut rgb_image = Image::new_uninit(
-            Extent3d {
-                width: 3840,
-                height: 2160,
-                depth_or_array_layers: 1,
-            },
-            TextureDimension::D2,
-            TextureFormat::Rgba32Float,
-            RenderAssetUsages::RENDER_WORLD,
-        );
-        rgb_image.texture_descriptor.usage = TextureUsages::COPY_DST
-            | TextureUsages::STORAGE_BINDING
-            | TextureUsages::TEXTURE_BINDING;
+        let size = Extent3d {
+            width: view_size.x,
+            height: view_size.y,
+            depth_or_array_layers: 1,
+        };
 
-        let normal = asset_server.add(rgb_image.clone());
-        let material = asset_server.add(rgb_image.clone());
-        let scaled_normal = asset_server.add(rgb_image.clone());
-        let scaled_material = asset_server.add(rgb_image);
+        let depth = render_device
+            .create_texture(&TextureDescriptor {
+                label: Some("raymarch_depth"),
+                size,
+                mip_level_count: 1,
+                sample_count: 1,
+                dimension: TextureDimension::D2,
+                format: TextureFormat::R16Float,
+                usage: TextureUsages::COPY_DST
+                    | TextureUsages::STORAGE_BINDING
+                    | TextureUsages::TEXTURE_BINDING,
+                view_formats: &[],
+            })
+            .create_view(&TextureViewDescriptor {
+                label: Some("raymarch_depth_view"),
+                base_mip_level: 0,
+                aspect: TextureAspect::All,
+                base_array_layer: 0,
+                ..default()
+            });
 
-        Self {
+        let normal = render_device
+            .create_texture(&TextureDescriptor {
+                label: Some("raymarch_normal"),
+                size,
+                mip_level_count: 1,
+                sample_count: 1,
+                dimension: TextureDimension::D2,
+                format: TextureFormat::Rgba16Float,
+                usage: TextureUsages::COPY_DST
+                    | TextureUsages::STORAGE_BINDING
+                    | TextureUsages::TEXTURE_BINDING,
+                view_formats: &[],
+            })
+            .create_view(&TextureViewDescriptor {
+                label: Some("raymarch_normal_view"),
+                base_mip_level: 0,
+                aspect: TextureAspect::All,
+                base_array_layer: 0,
+                ..default()
+            });
+
+        let material = render_device
+            .create_texture(&TextureDescriptor {
+                label: Some("raymarch_material"),
+                size,
+                mip_level_count: 1,
+                sample_count: 1,
+                dimension: TextureDimension::D2,
+                format: TextureFormat::Rgba16Float,
+                usage: TextureUsages::COPY_DST
+                    | TextureUsages::STORAGE_BINDING
+                    | TextureUsages::TEXTURE_BINDING,
+                view_formats: &[],
+            })
+            .create_view(&TextureViewDescriptor {
+                label: Some("raymarch_material_view"),
+                base_mip_level: 0,
+                aspect: TextureAspect::All,
+                base_array_layer: 0,
+                ..default()
+            });
+
+        let mask = render_device
+            .create_texture(&TextureDescriptor {
+                label: Some("raymarch_mask"),
+                size,
+                mip_level_count: 1,
+                sample_count: 1,
+                dimension: TextureDimension::D2,
+                format: TextureFormat::R16Float,
+                usage: TextureUsages::COPY_DST
+                    | TextureUsages::STORAGE_BINDING
+                    | TextureUsages::TEXTURE_BINDING,
+                view_formats: &[],
+            })
+            .create_view(&TextureViewDescriptor {
+                label: Some("raymarch_mask_view"),
+                base_mip_level: 0,
+                aspect: TextureAspect::All,
+                base_array_layer: 0,
+                ..default()
+            });
+
+        let scaled_depth = render_device
+            .create_texture(&TextureDescriptor {
+                label: Some("scaled_raymarch_depth"),
+                size,
+                mip_level_count: 1,
+                sample_count: 1,
+                dimension: TextureDimension::D2,
+                format: TextureFormat::R16Float,
+                usage: TextureUsages::COPY_DST
+                    | TextureUsages::STORAGE_BINDING
+                    | TextureUsages::TEXTURE_BINDING,
+                view_formats: &[],
+            })
+            .create_view(&TextureViewDescriptor {
+                label: Some("scaled_raymarch_depth_view"),
+                base_mip_level: 0,
+                aspect: TextureAspect::All,
+                base_array_layer: 0,
+                ..default()
+            });
+
+        let scaled_normal = render_device
+            .create_texture(&TextureDescriptor {
+                label: Some("scaled_raymarch_normal"),
+                size,
+                mip_level_count: 1,
+                sample_count: 1,
+                dimension: TextureDimension::D2,
+                format: TextureFormat::Rgba16Float,
+                usage: TextureUsages::COPY_DST
+                    | TextureUsages::STORAGE_BINDING
+                    | TextureUsages::TEXTURE_BINDING,
+                view_formats: &[],
+            })
+            .create_view(&TextureViewDescriptor {
+                label: Some("scaled_raymarch_normal_view"),
+                base_mip_level: 0,
+                aspect: TextureAspect::All,
+                base_array_layer: 0,
+                ..default()
+            });
+
+        let scaled_material = render_device
+            .create_texture(&TextureDescriptor {
+                label: Some("scaled_raymarch_material"),
+                size,
+                mip_level_count: 1,
+                sample_count: 1,
+                dimension: TextureDimension::D2,
+                format: TextureFormat::Rgba16Float,
+                usage: TextureUsages::COPY_DST
+                    | TextureUsages::STORAGE_BINDING
+                    | TextureUsages::TEXTURE_BINDING,
+                view_formats: &[],
+            })
+            .create_view(&TextureViewDescriptor {
+                label: Some("scaled_raymarch_material_view"),
+                base_mip_level: 0,
+                aspect: TextureAspect::All,
+                base_array_layer: 0,
+                ..default()
+            });
+
+        let scaled_mask = render_device
+            .create_texture(&TextureDescriptor {
+                label: Some("scaled_raymarch_mask"),
+                size,
+                mip_level_count: 1,
+                sample_count: 1,
+                dimension: TextureDimension::D2,
+                format: TextureFormat::R16Float,
+                usage: TextureUsages::COPY_DST
+                    | TextureUsages::STORAGE_BINDING
+                    | TextureUsages::TEXTURE_BINDING,
+                view_formats: &[],
+            })
+            .create_view(&TextureViewDescriptor {
+                label: Some("scaled_raymarch_mask_view"),
+                base_mip_level: 0,
+                aspect: TextureAspect::All,
+                base_array_layer: 0,
+                ..default()
+            });
+
+        commands.entity(entity).insert(RayMarchPrepass {
             depth,
             normal,
             material,
@@ -103,7 +255,8 @@ impl RayMarchPrepass {
             scaled_normal,
             scaled_material,
             scaled_mask,
-        }
+            view_size,
+        });
     }
 }
 
@@ -120,8 +273,8 @@ impl Plugin for RayMarchEnginePlugin {
 
         load_internal_asset!(
             app,
-            RAY_MARCH_END_PASS_HANDLE,
-            "../shaders/upscale.wgsl",
+            MARCH_WRITE_BACK_PASS_HANDLE,
+            "../shaders/write_back.wgsl",
             Shader::from_wgsl
         );
 
@@ -158,10 +311,9 @@ impl Plugin for RayMarchEnginePlugin {
             UniformComponentPlugin::<RayMarchCamera>::default(),
             ExtractResourcePlugin::<SdShapeStorage>::default(),
             ExtractResourcePlugin::<SdOpStorage>::default(),
-            ExtractComponentPlugin::<RayMarchPrepass>::default(),
         ))
         .add_systems(PostUpdate, update_ray_march_buffer)
-        .add_plugins(MarchEndPassPlugin)
+        .add_plugins(MarchWriteBackPlugin)
         .register_type::<RayMarchCamera>()
         .register_type::<SdShape>()
         .register_type::<SdOp>()
@@ -177,16 +329,20 @@ impl Plugin for RayMarchEnginePlugin {
         };
 
         render_app
+            .add_systems(
+                Render,
+                prepare_ray_march_resources.in_set(RenderSet::PrepareResources),
+            )
             .add_render_graph_node::<ViewNodeRunner<RayMarchEngineNode>>(
                 Core3d,
-                RayMarchPass::MarchPass,
+                RayMarchPass::RayMarchPass,
             )
             .add_render_graph_edges(
                 Core3d,
                 (
                     Node3d::EndMainPass,
-                    RayMarchPass::MarchPass,
-                    RayMarchPass::MainPass,
+                    RayMarchPass::RayMarchPass,
+                    RayMarchPass::WriteBackPass,
                     Node3d::Bloom,
                 ),
             );
@@ -202,8 +358,8 @@ impl Plugin for RayMarchEnginePlugin {
 
 #[derive(Debug, Hash, PartialEq, Eq, Clone, RenderLabel)]
 pub enum RayMarchPass {
-    MarchPass,
-    MainPass,
+    RayMarchPass,
+    WriteBackPass,
 }
 
 fn update_ray_march_buffer(

@@ -47,7 +47,7 @@ impl ViewNode for RayMarchEngineNode {
         _graph: &mut RenderGraphContext,
         render_context: &mut RenderContext,
         (
-            _view_target,
+            view_target,
             camera,
             _ray_march_settings,
             settings_index,
@@ -141,28 +141,18 @@ impl ViewNode for RayMarchEngineNode {
             )),
         );
 
-        let images = world.resource::<RenderAssets<GpuImage>>();
-        macro_rules! get_tex {
-            ($map:expr) => {
-                match images.get($map.id()) {
-                    Some(img) => &img.texture_view,
-                    None => return Ok(()),
-                }
-            };
-        }
-
         let prepass_bind_group = device.create_bind_group(
             "marcher_prepass_bind_group",
             &ray_march_pipeline.prepass_layout,
             &BindGroupEntries::sequential((
-                get_tex!(raymarch_prepass.depth),
-                get_tex!(raymarch_prepass.normal),
-                get_tex!(raymarch_prepass.material),
-                get_tex!(raymarch_prepass.mask),
-                get_tex!(raymarch_prepass.scaled_depth),
-                get_tex!(raymarch_prepass.scaled_normal),
-                get_tex!(raymarch_prepass.scaled_material),
-                get_tex!(raymarch_prepass.scaled_mask),
+                &raymarch_prepass.depth,
+                &raymarch_prepass.normal,
+                &raymarch_prepass.material,
+                &raymarch_prepass.mask,
+                &raymarch_prepass.scaled_depth,
+                &raymarch_prepass.scaled_normal,
+                &raymarch_prepass.scaled_material,
+                &raymarch_prepass.scaled_mask,
             )),
         );
 

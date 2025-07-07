@@ -27,14 +27,14 @@ struct RayMarchCamera {
 @group(2) @binding(0) var<storage, read> sd_shapes: array<SdShapeInstancePacked>;
 @group(2) @binding(1) var<storage, read> sd_ops: array<SdOpInstancePacked>;
 
-@group(3) @binding(0) var depth_prepass: texture_storage_2d<r32float, write>;
-@group(3) @binding(1) var normal_prepass: texture_storage_2d<rgba32float, write>;
-@group(3) @binding(2) var material_prepass: texture_storage_2d<rgba32float, write>;
-@group(3) @binding(3) var mask_prepass: texture_storage_2d<r32float, write>;
-@group(3) @binding(4) var scaled_depth_prepass: texture_storage_2d<r32float, read_write>;
-@group(3) @binding(5) var scaled_normal_prepass: texture_storage_2d<rgba32float, read_write>;
-@group(3) @binding(6) var scaled_material_prepass: texture_storage_2d<rgba32float, read_write>;
-@group(3) @binding(7) var scaled_mask_prepass: texture_storage_2d<r32float, read_write>;
+@group(3) @binding(0) var depth_prepass: texture_storage_2d<r16float, write>;
+@group(3) @binding(1) var normal_prepass: texture_storage_2d<rgba16float, write>;
+@group(3) @binding(2) var material_prepass: texture_storage_2d<rgba16float, write>;
+@group(3) @binding(3) var mask_prepass: texture_storage_2d<r16float, write>;
+@group(3) @binding(4) var scaled_depth_prepass: texture_storage_2d<r16float, read_write>;
+@group(3) @binding(5) var scaled_normal_prepass: texture_storage_2d<rgba16float, read_write>;
+@group(3) @binding(6) var scaled_material_prepass: texture_storage_2d<rgba16float, read_write>;
+@group(3) @binding(7) var scaled_mask_prepass: texture_storage_2d<r16float, read_write>;
 
 // TODO: Make op_resut recyce te sapce in te array to get a significant perforamce boost when dealing with large amounts of OPS
 const MAX_OPS: u32 = 6;

@@ -7,6 +7,7 @@ edition = "2024"
 bevy = { version = "0.16", default-features = false, features = [
     "bevy_core_pipeline",
     "bevy_pbr",
+    "bevy_render",
     "shader_format_wesl"
 ]}
 

@@ -21,11 +21,11 @@ use bevy::{
     },
 };
 
-use super::{RAY_MARCH_END_PASS_HANDLE, RayMarchCamera, RayMarchPass, RayMarchPrepass};
+use super::{MARCH_WRITE_BACK_PASS_HANDLE, RayMarchCamera, RayMarchPass, RayMarchPrepass};
 
-pub struct MarchEndPassPlugin;
+pub struct MarchWriteBackPlugin;
 
-impl Plugin for MarchEndPassPlugin {
+impl Plugin for MarchWriteBackPlugin {
     fn build(&self, app: &mut App) {
         app.add_plugins(());
 
@@ -38,8 +38,11 @@ impl Plugin for MarchEndPassPlugin {
                 Render,
                 prepare_ray_march_pipelines.in_set(RenderSet::Prepare),
             )
-            .init_resource::<SpecializedRenderPipelines<EndPassPipeline>>()
-            .add_render_graph_node::<ViewNodeRunner<EndPassNode>>(Core3d, RayMarchPass::MainPass);
+            .init_resource::<SpecializedRenderPipelines<MarchWriteBackPipeline>>()
+            .add_render_graph_node::<ViewNodeRunner<MarchWriteBackNode>>(
+                Core3d,
+                RayMarchPass::WriteBackPass,
+            );
     }
 
     fn finish(&self, app: &mut App) {
@@ -47,18 +50,18 @@ impl Plugin for MarchEndPassPlugin {
             return;
         };
 
-        render_app.init_resource::<EndPassPipeline>();
+        render_app.init_resource::<MarchWriteBackPipeline>();
     }
 }
 
 #[derive(Component, Deref, DerefMut)]
-pub struct UpscalePipelineId(pub CachedRenderPipelineId);
+pub struct MarchWriteBackPipelineId(pub CachedRenderPipelineId);
 
 fn prepare_ray_march_pipelines(
     mut commands: Commands,
     pipeline_cache: Res<PipelineCache>,
-    mut pipelines: ResMut<SpecializedRenderPipelines<EndPassPipeline>>,
-    post_processing_pipeline: Res<EndPassPipeline>,
+    mut pipelines: ResMut<SpecializedRenderPipelines<MarchWriteBackPipeline>>,
+    post_processing_pipeline: Res<MarchWriteBackPipeline>,
     views: Query<(Entity, &ExtractedView), With<RayMarchCamera>>,
 ) {
     for (entity, view) in views.iter() {
@@ -70,19 +73,19 @@ fn prepare_ray_march_pipelines(
 
         commands
             .entity(entity)
-            .insert(UpscalePipelineId(pipeline_id));
+            .insert(MarchWriteBackPipelineId(pipeline_id));
     }
 }
 
 #[derive(Default)]
-struct EndPassNode;
+struct MarchWriteBackNode;
 
-impl ViewNode for EndPassNode {
+impl ViewNode for MarchWriteBackNode {
     type ViewQuery = (
         Read<ViewTarget>,
         Read<RayMarchCamera>,
         Read<DynamicUniformIndex<RayMarchCamera>>,
-        Read<UpscalePipelineId>,
+        Read<MarchWriteBackPipelineId>,
         Read<RayMarchPrepass>,
     );
 
@@ -95,7 +98,7 @@ impl ViewNode for EndPassNode {
         >,
         world: &World,
     ) -> Result<(), NodeRunError> {
-        let post_process_pipeline = world.resource::<EndPassPipeline>();
+        let post_process_pipeline = world.resource::<MarchWriteBackPipeline>();
         let pipeline_cache = world.resource::<PipelineCache>();
 
         let Some(pipeline) = pipeline_cache.get_render_pipeline(**pipeline_id) else {
@@ -111,7 +114,7 @@ impl ViewNode for EndPassNode {
         let post_process = view_target.post_process_write();
 
         let bind_group = render_context.render_device().create_bind_group(
-            "march_end_pass_bind_group",
+            "march_write_back_pass_bind_group",
             &post_process_pipeline.layout,
             &BindGroupEntries::sequential((
                 post_process.source,
@@ -120,28 +123,15 @@ impl ViewNode for EndPassNode {
             )),
         );
 
-        let Some(material_map) = world
-            .resource::<RenderAssets<GpuImage>>()
-            .get(raymarch_prepass.material.id())
-        else {
-            return Ok(());
-        };
-        let Some(mask_map) = world
-            .resource::<RenderAssets<GpuImage>>()
-            .get(raymarch_prepass.mask.id())
-        else {
-            return Ok(());
-        };
-
         let prepass_bind_group = render_context.render_device().create_bind_group(
             "marcher_prepass_bind_group",
             &post_process_pipeline.prepass_layout,
-            &BindGroupEntries::sequential((&material_map.texture_view, &mask_map.texture_view)),
+            &BindGroupEntries::sequential((&raymarch_prepass.material, &raymarch_prepass.mask)),
         );
 
         // Begin the render pass
         let mut render_pass = render_context.begin_tracked_render_pass(RenderPassDescriptor {
-            label: Some("march_end_pass"),
+            label: Some("march_write_back_pass"),
             color_attachments: &[Some(RenderPassColorAttachment {
                 view: post_process.destination,
                 resolve_target: None,
@@ -162,18 +152,18 @@ impl ViewNode for EndPassNode {
 }
 
 #[derive(Resource)]
-struct EndPassPipeline {
+struct MarchWriteBackPipeline {
     layout: BindGroupLayout,
     sampler: Sampler,
     prepass_layout: BindGroupLayout,
 }
 
-impl FromWorld for EndPassPipeline {
+impl FromWorld for MarchWriteBackPipeline {
     fn from_world(world: &mut World) -> Self {
         let render_device = world.resource::<RenderDevice>();
 
         let layout = render_device.create_bind_group_layout(
-            "end_pass_bind_group_layout",
+            "march_write_back_bind_group_layout",
             &BindGroupLayoutEntries::sequential(
                 ShaderStages::FRAGMENT,
                 (
@@ -187,7 +177,7 @@ impl FromWorld for EndPassPipeline {
         let sampler = render_device.create_sampler(&SamplerDescriptor::default());
 
         let prepass_layout = render_device.create_bind_group_layout(
-            "end_pass_prepass_bind_group_layout",
+            "march_write_back_prepass_bind_group_layout",
             &BindGroupLayoutEntries::sequential(
                 ShaderStages::FRAGMENT,
                 (
@@ -210,7 +200,7 @@ pub struct UpscalePipelineKey {
     pub hdr: bool,
 }
 
-impl SpecializedRenderPipeline for EndPassPipeline {
+impl SpecializedRenderPipeline for MarchWriteBackPipeline {
     type Key = UpscalePipelineKey;
 
     fn specialize(&self, key: Self::Key) -> RenderPipelineDescriptor {
@@ -221,11 +211,11 @@ impl SpecializedRenderPipeline for EndPassPipeline {
         };
 
         RenderPipelineDescriptor {
-            label: Some("end_pass_pipeline".into()),
+            label: Some("march_write_back_pipeline".into()),
             layout: vec![self.layout.clone(), self.prepass_layout.clone()],
             vertex: fullscreen_shader_vertex_state(),
             fragment: Some(FragmentState {
-                shader: RAY_MARCH_END_PASS_HANDLE,
+                shader: MARCH_WRITE_BACK_PASS_HANDLE,
                 shader_defs: vec![],
                 entry_point: "fragment".into(),
                 targets: vec![Some(ColorTargetState {
