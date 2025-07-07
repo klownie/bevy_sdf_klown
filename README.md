@@ -16,7 +16,7 @@ Any help would be greatly apreciated
 - [X] Sub Surface Material Shader for SDF
 - [ ] Custom hard coded SDF Shaders
 - [X] SDF Modifiers
-- [] Compatibility with bevy_solair (ray tracing)
+- [ ] Compatibility with bevy_solair (ray tracing)
 - [ ] Compatibility as a WESL shader
 - [ ] make the shape have instanciable
 
