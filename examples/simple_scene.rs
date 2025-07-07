@@ -2,10 +2,10 @@ use bevy::core_pipeline::prepass::DepthPrepass;
 use bevy::prelude::*;
 use bevy_egui::EguiPlugin;
 use bevy_inspector_egui::quick::WorldInspectorPlugin;
-use bevy_sdf::RayMarchingPlugin;
-use bevy_sdf::engine::SdIndex;
-use bevy_sdf::engine::shape::SdMod;
-use bevy_sdf::engine::{
+use bevy_sdf_klown::RayMarchingPlugin;
+use bevy_sdf_klown::engine::SdIndex;
+use bevy_sdf_klown::engine::shape::SdMod;
+use bevy_sdf_klown::engine::{
     camera::RayMarchCamera,
     op::{SdOp, SdOperatedBy},
     shape::{SdMaterial, SdShape},
