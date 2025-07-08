@@ -529,19 +529,19 @@ fn opDisplace(d1: f32, d2: f32, strength: f32) -> vec2f {
 
 // Twist - bound
 fn opTwist(p: vec3f, k: f32) -> vec3f {
-    let s = sin(k * p.z);
-    let c = cos(k * p.z);
-    let m = mat2x2f(vec2f(c, s), vec2f(-s, c));
-    return vec3f(m * p.xy, p.z);
+  let s = sin(k * p.z);
+  let c = cos(k * p.z);
+  let m = mat2x2<f32>(vec2f(c, s), vec2f(-s, c));
+  return vec3f(m * p.xy, p.z);
 }
 //let d = sdfPrimitive3d(opTwist(p, k));
 
 // Bend - bound
 fn opCheapBend(p: vec3f, k: f32) -> vec3f {
-    let s = sin(k * p.x);
-    let c = cos(k * p.x);
-    let m = mat2x2<f32>(vec2f(c, s), vec2f(-s, c));
-    return vec3f(m * p.xy, p.z);
+  let s = sin(k * p.x);
+  let c = cos(k * p.x);
+  let m = mat2x2<f32>(vec2f(c, s), vec2f(-s, c));
+  return vec3f(m * p.xy, p.z);
 }
 //let d = sdfPrimitive3d(opCheapBend(p, k));
 

@@ -6,35 +6,35 @@
 
 fn select_shape(p: vec3f, shape: SdShape, transform: SdTransform, modifier: SdMod) -> f32 {
     let shape_data = shape.data * 0.5; //scale it to match blender
-    let pos = apply_mod(p - transform.pos, modifier);
-    let rot = transform.rot;
+    var pos = apply_transform(p , transform);
+    pos = apply_mod(pos, modifier); 
     switch shape.id {
-        case 0u, default { // Sphere
+        case 0u, default {
             return sdSphere(pos, shape_data[0].x);
         }
         case 1u {
-            return sdEllipsoid(OpRotateEuler(pos, rot), shape_data[0]);
+            return sdEllipsoid(pos, shape_data[0]);
         }
         case 2u {
-            return sdBox(OpRotateEuler(pos, rot), shape_data[0]);
+            return sdBox(pos, shape_data[0]);
         }
         case 3u {
-            return sdRoundBox(OpRotateEuler(pos, rot), shape_data[0], shape_data[1].x);
+            return sdRoundBox(pos, shape_data[0], shape_data[1].x);
         }
         case 4u {
-            return sdBoxFrame(OpRotateEuler(pos, rot), shape_data[0], shape_data[1].x);
+            return sdBoxFrame(pos, shape_data[0], shape_data[1].x);
         }
         case 5u {
             return sdGyroid(pos, shape_data[0].x);
         }
         case 6u {
-            return sdTorus(OpRotateEuler(pos, rot), shape_data[0].x, shape_data[0].y);
+            return sdTorus(pos, shape_data[0].x, shape_data[0].y);
         }
         case 7u {
-            return sdCappedTorus(OpRotateEuler(pos, rot), shape_data[0].x, shape_data[0].y, shape_data[1].xy);
+            return sdCappedTorus(pos, shape_data[0].x, shape_data[0].y, shape_data[1].xy);
         }
         case 8u {
-            return sdLink(OpRotateEuler(pos, rot), shape_data[0].x, shape_data[0].y, shape_data[0].z);
+            return sdLink(pos, shape_data[0].x, shape_data[0].y, shape_data[0].z);
         }
         case 9u {
             return sdVerticalCapsule(pos, shape_data[0].x, shape_data[0].y);
@@ -93,23 +93,23 @@ fn select_shape(p: vec3f, shape: SdShape, transform: SdTransform, modifier: SdMo
         case 27u {
             return sdHexPrism(pos, shape_data[0].xy);
         }
-        case 28u { 
+        case 28u {
             return sdTriPrism(pos, shape_data[0].xy);
         }
         case 29u {
             return udTriangle(pos, shape_data[0], shape_data[1], shape_data[2]);
         }
         case 30u {
-            return sdBunny(OpRotateEuler(pos, rot) / shape_data[0].x) * shape_data[0].x;
+            return sdBunny(pos / shape_data[0].x) * shape_data[0].x;
         }
         case 31u {
-            return sdMandelbulb(OpRotateEuler(pos, rot) / shape_data[0].x ,shape_data[0].y, shape_data[0].z, shape_data[1].x) * shape_data[0].x;
+            return sdMandelbulb(pos / shape_data[0].x, shape_data[0].y, shape_data[0].z, shape_data[1].x) * shape_data[0].x;
         }
         case 32u {
-            return sdJuliaQuaternion(OpRotateEuler(pos, rot) / shape_data[0].x ,shape_data[0].y) * shape_data[0].x;
+            return sdJuliaQuaternion(pos / shape_data[0].x, shape_data[0].y) * shape_data[0].x;
         }
         case 33u {
-            return sdMengerSponge(OpRotateEuler(pos, rot) / shape_data[0].x ,shape_data[0].y) * shape_data[0].x;
+            return sdMengerSponge(pos / shape_data[0].x, shape_data[0].y) * shape_data[0].x;
         }
     }
 }
@@ -144,6 +144,14 @@ fn apply_mod(p: vec3f, modifier: SdMod) -> vec3f {
             return p;
         }
     }
+}
+
+fn apply_transform(p: vec3f, transform: SdTransform) -> vec3f {
+    var new_p = p - transform.pos;
+    if (!all(transform.rot == vec3f(0.0))) {
+        new_p = OpRotateEuler( new_p, transform.rot);
+    }
+    return new_p;
 }
 
 fn select_op(op: u32, op_data: f32, rev_op: bool, d1: f32, d2: f32) -> vec2f {
