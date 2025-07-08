@@ -21,6 +21,7 @@ This crate is still under active development and **needs significant optimizatio
 - ✅ Subsurface material shader for SDFs
 - ⏳ Custom hard-coded SDF shaders *(planned)*
 - ✅ SDF modifiers (e.g. union, blend, transforms)
+- ✅ Fractal shapes MandelBulb, JuliaQuaternion, MengerSponge
 - ⏳ Compatibility with [bevy_solari](https://github.com/bevyengine/bevy/tree/main/crates/bevy_solari) *(planned)*
 - ⏳ Compatibility with WGSL shaders *(planned)*
 - ⏳ Shape instancing *(planned)*
@@ -45,7 +46,7 @@ This crate is still under active development and **needs significant optimizatio
 ![simple_scene_screenshots](images/simple_scene_02.png)
 
 ### Video from my games where im using this crate
-![Warithmonia](images/warithmonia_sdf.mp4)
+![Warithmonia](https://www.youtube.com/watch?v=4xxd_LfCois)
 
 ## 🔗 Other Raymarchers for Bevy
 
