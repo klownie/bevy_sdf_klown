@@ -45,8 +45,15 @@ This crate is still under active development and **needs significant optimizatio
 ![simple_scene_screenshots](images/simple_scene_01.png)
 ![simple_scene_screenshots](images/simple_scene_02.png)
 
+---
+
+### Sub Surface Scattering
+![sub surface scattering](images/sub_surface_scattering.png)
+
+---
+
 ### Video from my games where im using this crate
-[![Warithmonia YouTube Preview](https://img.youtube.com/vi/4xxd_LfCois/hqdefault.jpg)](https://www.youtube.com/watch?v=4xxd_LfCois)
+[![Warithmonia YouTube Preview](images/warithmonia_sdf.png)](https://www.youtube.com/watch?v=4xxd_LfCois)
 
 ## 🔗 Other Raymarchers for Bevy
 
