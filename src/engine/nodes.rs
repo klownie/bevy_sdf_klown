@@ -22,8 +22,9 @@ use bevy::{
 
 use super::op::SdOpUniformInstance;
 use super::pipeline::RayMarchEnginePipeline;
+use super::prepass::RayMarchPrepass;
 use super::shape::SdShapeUniformInstance;
-use super::{RayMarchCamera, RayMarchPrepass, SdOpStorage, SdShapeStorage, WORKGROUP_SIZE};
+use super::{RayMarchCamera, SdOpStorage, SdShapeStorage, WORKGROUP_SIZE};
 
 #[derive(Default)]
 pub struct RayMarchEngineNode;
@@ -113,7 +114,7 @@ impl ViewNode for RayMarchEngineNode {
         sd_shape_buf.reserve(res_shape.len(), device);
         for shape in res_shape.iter() {
             sd_shape_buf.push(SdShapeUniformInstance {
-                shape: shape.shape.uniform(),
+                shape: shape.shape.clone().uniform(),
                 material: shape.material.uniform(),
                 modifier: shape.modifier.uniform(),
                 transform: shape.transform.uniform(),

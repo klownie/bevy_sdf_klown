@@ -19,7 +19,7 @@ use bevy::{
     },
 };
 
-use super::{MARCH_WRITE_BACK_PASS_HANDLE, RayMarchCamera, RayMarchPass, RayMarchPrepass};
+use super::{MARCH_WRITE_BACK_PASS_HANDLE, RayMarchCamera, RayMarchPass, prepass::RayMarchPrepass};
 
 pub struct MarchWriteBackPlugin;
 

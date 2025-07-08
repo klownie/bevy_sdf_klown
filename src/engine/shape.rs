@@ -11,7 +11,7 @@ pub struct SdShapeUniformInstance {
     pub transform: SdTransformUniform,
 }
 
-#[derive(Reflect, Debug, Clone, Copy)]
+#[derive(Reflect, Debug, Copy, Clone)]
 pub struct SdShapeInstance {
     pub shape: SdShape,
     pub material: SdMaterial,
@@ -26,7 +26,7 @@ pub struct SdShapeUniform {
 }
 
 #[repr(u32)]
-#[derive(Reflect, Component, Debug, Clone, Copy)]
+#[derive(Reflect, Component, Debug, Copy, Clone)]
 #[require(Name::new("SdShape"), SdMod::Empty, Transform)]
 #[reflect(Component)]
 pub enum SdShape {

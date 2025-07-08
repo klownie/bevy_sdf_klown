@@ -64,7 +64,6 @@ fn setup(mut commands: Commands, mut materials: ResMut<Assets<StandardMaterial>>
             c: Vec3::new(12.0, 10000.0, 12.0),
         },
         SdOperatedBy(smooth_union),
-        MeshMaterial3d(materials.add(Color::srgb(0.3, 0.5, 0.3))),
     ));
     commands.spawn((
         SdShape::Box {
