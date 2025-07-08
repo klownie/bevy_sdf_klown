@@ -46,7 +46,7 @@ This crate is still under active development and **needs significant optimizatio
 ![simple_scene_screenshots](images/simple_scene_02.png)
 
 ### Video from my games where im using this crate
-![Warithmonia](https://www.youtube.com/watch?v=4xxd_LfCois)
+[![Warithmonia YouTube Preview](https://img.youtube.com/vi/4xxd_LfCois/hqdefault.jpg)](https://www.youtube.com/watch?v=4xxd_LfCois)
 
 ## 🔗 Other Raymarchers for Bevy
 
