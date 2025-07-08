@@ -1,28 +1,54 @@
-# Bevy SDF
+# 🌌 Bevy SDF
 
-A general purpose SDF plugin for bevy
-## Waning
+**Bevy SDF** is a general-purpose signed distance field (SDF) rendering plugin for [Bevy](https://bevy.org/). It supports dynamic SDF composition, material shading, and runtime scene manipulation.
 
-This is still a WIP it need heavy optimisation to be usable on most systems.
+---
 
-Any help would be greatly apreciated
+## 🚧 Warning: Work in Progress
 
-## Features
+This crate is still under active development and **needs significant optimization** to perform well on most systems.
 
-- [X] compatibility with bevy-skein
-- [X] modifiable SDF during the games execution
-- [ ] Custom hard coded SDF Shapes
-- [X] PBR Material (color, roughness, fresnel, metallic)
-- [X] Sub Surface Material Shader for SDF
-- [ ] Custom hard coded SDF Shaders
-- [X] SDF Modifiers
-- [ ] Compatibility with bevy_solair (ray tracing)
-- [ ] Compatibility as a WESL shader
-- [ ] make the shape have instanciable
-- [ ] make the max  amount of SdOp dynamicaly changeable instead of hardcoded
+💡 **Any help or contributions are greatly appreciated!**
+
+---
+
+## ✨ Features
+
+- ✅ Compatibility with [bevy-skein](https://bevy-skein.netlify.app/)
+- ✅ Modifiable SDFs during game runtime
+- ⏳ Custom hard-coded SDF shapes *(planned)*
+- ⏳ Physically-Based Material (color, roughness, fresnel, metallic)
+- ✅ Subsurface material shader for SDFs
+- ⏳ Custom hard-coded SDF shaders *(planned)*
+- ✅ SDF modifiers (e.g. union, blend, transforms)
+- ⏳ Compatibility with [bevy_solari](https://github.com/bevyengine/bevy/tree/main/crates/bevy_solari) *(planned)*
+- ⏳ Compatibility with WGSL shaders *(planned)*
+- ⏳ Shape instancing *(planned)*
+- ⏳ Dynamic `SdOp` capacity (currently hardcoded)
+
+---
 
 ## Compatibility
 
 | bevy_sdf | bevy |
 |----------|------|
-| 0.1.0    | 0.16 |
+| 0.1.1    | 0.16 |
+
+---
+
+## Showcases
+
+---
+
+### Screenshots from the simple scene example
+![simple_scene_screenshots](images/simple_scene_01.png)
+![simple_scene_screenshots](images/simple_scene_02.png)
+
+### Video from my games where im using this crate
+![Warithmonia](images/warithmonia_sdf.mp4)
+
+## 🔗 Other Raymarchers for Bevy
+
+If you're into SDFs or ray marching, check out:
+
+- [`bevy_march`](https://github.com/NiseVoid/bevy_march) — a fast and capable alternative ray marcher.
