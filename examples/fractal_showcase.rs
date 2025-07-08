@@ -1,5 +1,4 @@
 use bevy::core_pipeline::prepass::DepthPrepass;
-use bevy::ecs::query;
 use bevy::prelude::*;
 use bevy_egui::EguiPlugin;
 use bevy_inspector_egui::quick::WorldInspectorPlugin;
@@ -13,6 +12,7 @@ use bevy_sdf_klown::engine::{
 
 fn main() {
     App::new()
+        .insert_resource(ClearColor(Color::srgb(0.0, 0.0, 0.0)))
         .add_plugins((
             DefaultPlugins,
             RayMarchingPlugin,
@@ -51,7 +51,7 @@ fn setup(mut commands: Commands) {
             iter: 10.0,
         },
         SdMaterial {
-            color: Vec4::new(0.9, 0.5, 0.3, 1.0),
+            color: Vec4::new(0.9, 0.5, 1.0, 1.0),
             roughness: 0.5,
             ..default()
         },
@@ -67,7 +67,7 @@ fn setup(mut commands: Commands) {
             b_offset: 0.0,
         },
         SdMaterial {
-            color: Vec4::new(0.9, 0.5, 0.3, 1.0),
+            color: Vec4::new(0.9, 0.5, 1.0, 1.0),
             roughness: 0.5,
             ..default()
         },
@@ -82,7 +82,7 @@ fn setup(mut commands: Commands) {
         Transform::from_xyz(10.0, 0.5, 0.0),
         SdOperatedBy(union1),
         SdMaterial {
-            color: Vec4::new(0.9, 0.5, 0.3, 1.0),
+            color: Vec4::new(0.9, 0.5, 1.0, 1.0),
             roughness: 0.5,
             ..default()
         },
