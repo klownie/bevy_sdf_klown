@@ -439,19 +439,15 @@ pub struct SdOpStorage {
 pub struct SdIndex(pub u32);
 
 fn update_sd_index(mut world: DeferredWorld, HookContext { entity, .. }: HookContext) {
-    let index = {
-        let parent = match world.get::<ChildOf>(entity) {
-            Some(p) => p.parent(),
-            None => return set_index(&mut world, entity, 0),
-        };
+    let mut depth = 0;
+    let mut current_entity = entity;
 
-        match world.get::<SdIndex>(parent) {
-            Some(sd_index) => sd_index.0 + 1,
-            None => 0,
-        }
-    };
+    while let Some(parent) = world.get::<SdOperatedBy>(current_entity) {
+        depth += 1;
+        current_entity = parent.0;
+    }
 
-    set_index(&mut world, entity, index);
+    set_index(&mut world, entity, depth);
 }
 
 #[inline]

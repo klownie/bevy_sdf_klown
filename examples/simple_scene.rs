@@ -4,7 +4,6 @@ use bevy_egui::EguiPlugin;
 use bevy_inspector_egui::quick::WorldInspectorPlugin;
 use bevy_panorbit_camera::{PanOrbitCamera, PanOrbitCameraPlugin};
 use bevy_sdf_klown::RayMarchingPlugin;
-use bevy_sdf_klown::engine::SdIndex;
 use bevy_sdf_klown::engine::shape::SdMod;
 use bevy_sdf_klown::engine::{
     camera::RayMarchCamera,
@@ -42,27 +41,27 @@ fn setup(mut commands: Commands, mut materials: ResMut<Assets<StandardMaterial>>
     // any amount SdOperatedBy used above or under that can BREAK the raymarcher in unexpected ways
 
     let smooth_union = commands
-        .spawn((
-            SdOp::SmoothUnion {
-                k: 1.0,
-                pad: [0; 3],
-            },
-            SdIndex(0),
-        ))
+        .spawn((SdOp::SmoothUnion {
+            k: 1.0,
+            pad: [0; 3],
+        },))
         .id();
 
     let union = commands
-        .spawn((SdOp::Union, SdOperatedBy(smooth_union), SdIndex(1)))
+        .spawn((SdOp::Union, SdOperatedBy(smooth_union)))
         .id();
 
     commands.spawn((
         SdShape::Box {
-            bounds: Vec3::new(20.0, 0.1, 20.0),
+            bounds: Vec3::new(10.0, 0.1, 10.0),
         },
         SdMaterial {
             color: Vec4::new(0.3, 0.5, 0.3, 1.0),
             roughness: 0.5,
             ..default()
+        },
+        SdMod::InfArray {
+            c: Vec3::new(12.0, 10000.0, 12.0),
         },
         SdOperatedBy(smooth_union),
         MeshMaterial3d(materials.add(Color::srgb(0.3, 0.5, 0.3))),

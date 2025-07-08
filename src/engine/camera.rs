@@ -26,11 +26,11 @@ impl Default for RayMarchCamera {
             w: 0.5,
             max_steps: 500,
             max_distance: 500.,
-            shadow_eps: 0.1,
+            shadow_eps: 0.01,
             shadow_max_steps: 500,
             shadow_max_distance: 100.,
             shadow_softness: 0.02,
-            normal_eps: 0.01,
+            normal_eps: 0.001,
         }
     }
 }
