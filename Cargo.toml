@@ -5,7 +5,7 @@ edition = "2024"
 authors = ["Audrick Yeu <audrickyeu@proton.me>"]
 description = "General Pupose sdf plugin for bevy"
 license = "MIT OR Apache-2.0"
-repository = "https://github.com/klownie/bevy_sdf"
+repository = "https://github.com/klownie/bevy_sdf_klown"
 readme = "README.md"
 keywords = ["bevy", "sdf", "graphics", "ray_marching"]
 categories = ["graphics", "rendering", "games"]
@@ -15,33 +15,16 @@ bevy = { version = "0.16.1", default-features = false, features = [
     "bevy_asset",
     "bevy_color", 
     "bevy_core_pipeline",
-    "bevy_gilrs",
-    "bevy_gizmos",
     "bevy_gltf",
-    "bevy_mesh_picking_backend",
     "bevy_pbr",
-    "bevy_picking",
     "bevy_render",
-    "bevy_remote",
-    "bevy_scene",
-    "bevy_state",
     "bevy_text",
     "bevy_ui",
-    "bevy_ui_picking_backend",
     "bevy_window",
     "bevy_winit",
-    "custom_cursor",
     "default_font",
     "hdr",
     "multi_threaded",
-    "png",
-    "smaa_luts",
-    "sysinfo_plugin",
-    "tonemapping_luts",
-    "webgl2",
-    "experimental_pbr_pcss",
-    "meshlet",
-    "meshlet_processor"
 ]}
 bevy_egui = "0.34"
 bevy-inspector-egui = "0.31"

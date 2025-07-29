@@ -3,12 +3,12 @@ use bevy::prelude::*;
 use bevy_egui::EguiPlugin;
 use bevy_inspector_egui::quick::WorldInspectorPlugin;
 use bevy_panorbit_camera::{PanOrbitCamera, PanOrbitCameraPlugin};
-use bevy_sdf_klown::RayMarchingPlugin;
 use bevy_sdf_klown::engine::{
     camera::RayMarchCamera,
-    op::{SdOp, SdOperatedBy},
+    op::SdOp,
     shape::{SdMaterial, SdShape},
 };
+use bevy_sdf_klown::{RayMarchingPlugin, patients};
 
 fn main() {
     App::new()
@@ -28,64 +28,54 @@ fn main() {
 }
 
 fn setup(mut commands: Commands) {
-    // RayMarch Scene
-    //
-    // This example scene can be illustarted like this:
-    //
-    // SmoothUnion/
-    // ├── PlaneShape
-    // └── Union/
-    //    ├── BoxShape
-    //    └── CapsuleShape
-
-    // WARN: A SdOp will only take in acount TOW RelationShips to it using SdOperatedBy
-    // any amount SdOperatedBy used above or under that can BREAK the raymarcher in unexpected ways
-
-    let union1 = commands.spawn((SdOp::Union,)).id();
-
-    let union2 = commands.spawn((SdOp::Union, SdOperatedBy(union1))).id();
-
     commands.spawn((
-        SdShape::MengerSponge {
-            scale: 5.0,
-            iter: 10.0,
-        },
-        SdMaterial {
-            color: Vec4::new(0.9, 0.5, 1.0, 1.0),
-            roughness: 0.5,
-            ..default()
-        },
-        Transform::from_xyz(-10.0, 0.5, 0.0),
-        SdOperatedBy(union2),
-    ));
-    commands.spawn((
-        AnimateMadelBulb,
-        SdShape::MandelBulb {
-            scale: 5.0,
-            expo: 8.0,
-            iter: 10.0,
-            b_offset: 0.0,
-        },
-        SdMaterial {
-            color: Vec4::new(0.9, 0.5, 1.0, 1.0),
-            roughness: 0.5,
-            ..default()
-        },
-        Transform::from_xyz(0.0, 0.5, 0.0),
-        SdOperatedBy(union2),
-    ));
-    commands.spawn((
-        SdShape::JuliaQuaternion {
-            scale: 5.0,
-            iter: 30.0,
-        },
-        Transform::from_xyz(10.0, 0.5, 0.0),
-        SdOperatedBy(union1),
-        SdMaterial {
-            color: Vec4::new(0.9, 0.5, 1.0, 1.0),
-            roughness: 0.5,
-            ..default()
-        },
+        SdOp::Union,
+        patients![
+            (
+                SdOp::Union,
+                patients![
+                    (
+                        SdShape::MengerSponge {
+                            scale: 5.0,
+                            iter: 10.0,
+                        },
+                        SdMaterial {
+                            color: Vec4::new(0.9, 0.5, 1.0, 1.0),
+                            roughness: 0.5,
+                            ..default()
+                        },
+                        Transform::from_xyz(-10.0, 0.5, 0.0),
+                    ),
+                    (
+                        AnimateMadelBulb,
+                        SdShape::MandelBulb {
+                            scale: 5.0,
+                            expo: 8.0,
+                            iter: 10.0,
+                            b_offset: 0.0,
+                        },
+                        SdMaterial {
+                            color: Vec4::new(0.9, 0.5, 1.0, 1.0),
+                            roughness: 0.5,
+                            ..default()
+                        },
+                        Transform::from_xyz(0.0, 0.5, 0.0),
+                    )
+                ]
+            ),
+            (
+                SdShape::JuliaQuaternion {
+                    scale: 5.0,
+                    iter: 30.0,
+                },
+                Transform::from_xyz(10.0, 0.5, 0.0),
+                SdMaterial {
+                    color: Vec4::new(0.9, 0.5, 1.0, 1.0),
+                    roughness: 0.5,
+                    ..default()
+                },
+            )
+        ],
     ));
 
     // Light
