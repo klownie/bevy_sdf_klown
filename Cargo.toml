@@ -1,6 +1,6 @@
 [package]
 name = "bevy_sdf_klown"
-version = "0.1.1"
+version = "0.1.2"
 edition = "2024"
 authors = ["Audrick Yeu <audrickyeu@proton.me>"]
 description = "General Pupose sdf plugin for bevy"
@@ -25,6 +25,7 @@ bevy = { version = "0.16.1", default-features = false, features = [
     "default_font",
     "hdr",
     "multi_threaded",
+    "wayland"
 ]}
 bevy_egui = "0.34"
 bevy-inspector-egui = "0.31"

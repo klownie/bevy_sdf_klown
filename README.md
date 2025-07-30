@@ -42,13 +42,19 @@ This crate is still under active development and **needs significant optimizatio
 ---
 
 ### Screenshots from the simple scene example
+
+> view with `cargo r --example simple_scene`
 ![simple_scene_screenshots](images/simple_scene_01.png)
 ![simple_scene_screenshots](images/simple_scene_02.png)
 
 ---
 
 ### Sub Surface Scattering
-![sub surface scattering](images/sub_surface_scattering.png)
+
+![sub surface scattering from my game](images/sub_surface_scattering_1.png)
+
+> view with `cargo r --example sss_material`
+![sub surface scattering from example](images/sub_surface_scattering_2.png)
 
 ---
 
