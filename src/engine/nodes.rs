@@ -20,10 +20,10 @@ use bevy::{
     },
 };
 
+use super::object::SdObjectUniform;
 use super::op::SdOpUniformInstance;
 use super::pipeline::RayMarchEnginePipeline;
 use super::prepass::RayMarchPrepass;
-use super::shape::SdShapeUniformInstance;
 use super::{RayMarchCamera, SdOpStorage, SdShapeStorage, WORKGROUP_SIZE};
 
 #[derive(Default)]
@@ -109,11 +109,11 @@ impl ViewNode for RayMarchEngineNode {
             )),
         );
 
-        let mut sd_shape_buf = BufferVec::<SdShapeUniformInstance>::new(BufferUsages::STORAGE);
+        let mut sd_shape_buf = BufferVec::<SdObjectUniform>::new(BufferUsages::STORAGE);
         let res_shape = &world.resource::<SdShapeStorage>().data;
         sd_shape_buf.reserve(res_shape.len(), device);
         for shape in res_shape.iter() {
-            sd_shape_buf.push(SdShapeUniformInstance {
+            sd_shape_buf.push(SdObjectUniform {
                 shape: shape.shape.clone().uniform(),
                 material: shape.material.uniform(),
                 modifier: shape.modifier.uniform(),

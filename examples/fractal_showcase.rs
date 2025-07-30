@@ -5,10 +5,10 @@ use bevy_inspector_egui::quick::WorldInspectorPlugin;
 use bevy_panorbit_camera::{PanOrbitCamera, PanOrbitCameraPlugin};
 use bevy_sdf_klown::engine::{
     camera::RayMarchCamera,
+    object::{SdMaterial, SdShape},
     op::SdOp,
-    shape::{SdMaterial, SdShape},
 };
-use bevy_sdf_klown::{RayMarchingPlugin, patients};
+use bevy_sdf_klown::{RayMarchingPlugin, op_patients};
 
 fn main() {
     App::new()
@@ -30,10 +30,10 @@ fn main() {
 fn setup(mut commands: Commands) {
     commands.spawn((
         SdOp::Union,
-        patients![
+        op_patients![
             (
                 SdOp::Union,
-                patients![
+                op_patients![
                     (
                         SdShape::MengerSponge {
                             scale: 5.0,

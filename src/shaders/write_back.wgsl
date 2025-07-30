@@ -18,11 +18,11 @@ struct RayMarchCamera {
 @fragment
 fn fragment(in: FullscreenVertexOutput) -> @location(0) vec4f {
     let uv = in.uv;
-    
+
     let mask = bool(textureSample(march_mask_texture, texture_sampler, uv).x);
 
     let mat = textureSample(march_material_texture, texture_sampler, uv);
-    
+
     let bg = textureSample(screen_texture, texture_sampler, uv);
 
     return select(bg, mat, mask);

@@ -5,10 +5,10 @@ use bevy_inspector_egui::quick::WorldInspectorPlugin;
 use bevy_panorbit_camera::{PanOrbitCamera, PanOrbitCameraPlugin};
 use bevy_sdf_klown::engine::{
     camera::RayMarchCamera,
+    object::{SdMaterial, SdMod, SdShape},
     op::SdOp,
-    shape::{SdMaterial, SdMod, SdShape},
 };
-use bevy_sdf_klown::{RayMarchingPlugin, patients};
+use bevy_sdf_klown::{RayMarchingPlugin, op_patients};
 
 fn main() {
     App::new()
@@ -23,21 +23,23 @@ fn main() {
             PanOrbitCameraPlugin,
         ))
         .add_systems(Startup, setup)
-        .add_systems(Update, animate_mandelbulb)
+        .add_systems(Update, animate_twist_modifier)
         .run();
 }
 
 fn setup(mut commands: Commands) {
     commands.spawn((
         SdOp::SmoothUnion {
-            pad: [0; 3],
+            _pad: [0; 3],
             k: 1.5,
         },
-        patients![
+        op_patients![
             (
                 SdShape::Box {
                     bounds: Vec3::new(10.0, 5.0, 10.0),
                 },
+                SdMod::Twist { k: 0.1 },
+                AnimateTwitModifier,
                 Transform::from_xyz(0.0, -2.5, 0.0),
                 SdMaterial {
                     color: Vec4::new(0.3, 0.5, 0.3, 1.0),
@@ -104,12 +106,18 @@ fn setup(mut commands: Commands) {
 }
 
 #[derive(Component)]
-struct AnimateMadelBulb;
+struct AnimateTwitModifier;
 
-fn animate_mandelbulb(mut query: Query<&mut SdShape, With<AnimateMadelBulb>>) {
+fn animate_twist_modifier(
+    mut query: Query<&mut SdMod, With<AnimateTwitModifier>>,
+    time: Res<Time>,
+) {
     for mut shape in query.iter_mut() {
-        if let SdShape::MandelBulb { b_offset, .. } = &mut *shape {
-            *b_offset += 0.01;
+        if let SdMod::Twist { k, .. } = &mut *shape {
+            let eas_func = EaseFunction::SmootherStep;
+            *k = eas_func.sample_unchecked(time.elapsed_secs().sin().abs())
+                * time.elapsed_secs_wrapped().sin().signum()
+                / 10.0;
         }
     }
 }

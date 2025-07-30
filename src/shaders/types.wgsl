@@ -1,21 +1,21 @@
 #define_import_path bevy_sdf::types
 
-struct SdShapeInstance {
+struct SdObject {
     shape: SdShape,
     material: SdMaterial,
     modifier: SdMod,
-    transform: SdTransform, 
+    transform: SdTransform,
 }
 
-struct SdShapeInstancePacked {
+struct SdObjectPacked {
     shape: SdShape,
     material: SdMaterialPacked,
     modifier: SdModPacked,
-    transform: SdTransform, 
+    transform: SdTransform,
 }
 
-fn unpack_sd_shape_instance(packed: SdShapeInstancePacked) -> SdShapeInstance {
-   return SdShapeInstance(packed.shape, unpack_sd_material(packed.material), unpack_sd_mod(packed.modifier), packed.transform); 
+fn unpack_sd_object(packed: SdObjectPacked) -> SdObject {
+    return SdObject(packed.shape, unpack_sd_material(packed.material), unpack_sd_mod(packed.modifier), packed.transform);
 }
 
 struct SdShape {
@@ -36,7 +36,6 @@ struct SdMaterialPacked {
     color: u32,
     rough_fres_metal: u32,
     sss_strength_radius: u32,
-
 }
 
 fn unpack_sd_material(packed: SdMaterialPacked) -> SdMaterial {

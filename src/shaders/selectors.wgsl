@@ -6,8 +6,8 @@
 
 fn select_shape(p: vec3f, shape: SdShape, transform: SdTransform, modifier: SdMod) -> f32 {
     let shape_data = shape.data * 0.5; //scale it to match blender
-    var pos = apply_transform(p , transform);
-    pos = apply_mod(pos, modifier); 
+    var pos = apply_transform(p, transform);
+    pos = apply_mod(pos, modifier);
     switch shape.id {
         case 0u, default {
             return sdSphere(pos, shape_data[0].x);
@@ -116,7 +116,7 @@ fn select_shape(p: vec3f, shape: SdShape, transform: SdTransform, modifier: SdMo
 
 fn apply_mod(p: vec3f, modifier: SdMod) -> vec3f {
     switch modifier.id {
-        case 0u { 
+        case 0u {
             return opTwist(p, modifier.data.x);
         }
         case 1u {
@@ -148,15 +148,15 @@ fn apply_mod(p: vec3f, modifier: SdMod) -> vec3f {
 
 fn apply_transform(p: vec3f, transform: SdTransform) -> vec3f {
     var new_p = p - transform.pos;
-    if (!all(transform.rot == vec3f(0.0))) {
-        new_p = OpRotateEuler( new_p, transform.rot);
+    if !all(transform.rot == vec3f(0.0)) {
+        new_p = OpRotateEuler(new_p, transform.rot);
     }
     return new_p;
 }
 
 fn select_op(op: u32, op_data: f32, rev_op: bool, d1: f32, d2: f32) -> vec2f {
     switch op {
-        case 0u, default { 
+        case 0u, default {
             return opUnion(d1, d2);
         }
         case 1u { // Subtract
@@ -166,10 +166,10 @@ fn select_op(op: u32, op_data: f32, rev_op: bool, d1: f32, d2: f32) -> vec2f {
                 return opSubtract(d2, d1);
             };
         }
-        case 2u { 
+        case 2u {
             return opIntersect(d1, d2);
         }
-        case 3u { 
+        case 3u {
             return opChamferUnion(d1, d2, op_data);
         }
         case 4u { // ChamferSubtract
@@ -179,10 +179,10 @@ fn select_op(op: u32, op_data: f32, rev_op: bool, d1: f32, d2: f32) -> vec2f {
                 return opChamferSubtract(d2, d1, op_data);
             };
         }
-        case 5u { 
+        case 5u {
             return opChamferIntersect(d1, d2, op_data);
         }
-        case 6u { 
+        case 6u {
             return opSmoothUnion(d1, d2, op_data);
         }
         case 7u { // SmoothSubtract
@@ -192,7 +192,7 @@ fn select_op(op: u32, op_data: f32, rev_op: bool, d1: f32, d2: f32) -> vec2f {
                 return opSmoothSubtract(d2, d1, op_data);
             };
         }
-        case 8u { 
+        case 8u {
             return opSmoothIntersect(d1, d2, op_data);
         }
         case 9u { // Displace

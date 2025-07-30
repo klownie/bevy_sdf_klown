@@ -16,8 +16,7 @@ use bevy::{
 };
 
 use super::{
-    RAY_MARCH_MAIN_PASS_HANDLE, RayMarchCamera, op::SdOpUniformInstance,
-    shape::SdShapeUniformInstance,
+    RAY_MARCH_MAIN_PASS_HANDLE, RayMarchCamera, object::SdObjectUniform, op::SdOpUniformInstance,
 };
 
 #[derive(Resource)]
@@ -72,7 +71,7 @@ impl FromWorld for RayMarchEnginePipeline {
             &BindGroupLayoutEntries::sequential(
                 ShaderStages::COMPUTE,
                 (
-                    storage_buffer_read_only::<SdShapeUniformInstance>(false),
+                    storage_buffer_read_only::<SdObjectUniform>(false),
                     storage_buffer_read_only::<SdOpUniformInstance>(false),
                 ),
             ),

@@ -41,40 +41,40 @@ pub enum SdOp {
     Intersect,
     ChamferUnion {
         #[reflect(ignore)]
-        pad: [u8; 3],
+        _pad: [u8; 3],
         radius: f32,
     },
     ChamferSubtract {
         rev: bool,
         #[reflect(ignore)]
-        pad: u16,
+        _pad: u16,
         radius: f32,
     },
     ChamferIntersect {
         #[reflect(ignore)]
-        pad: [u8; 3],
+        _pad: [u8; 3],
         radius: f32,
     },
     SmoothUnion {
         #[reflect(ignore)]
-        pad: [u8; 3],
+        _pad: [u8; 3],
         k: f32,
     },
     SmoothSubtract {
         rev: bool,
         #[reflect(ignore)]
-        pad: u16,
+        _pad: u16,
         k: f32,
     },
     SmoothIntersect {
         #[reflect(ignore)]
-        pad: [u8; 3],
+        _pad: [u8; 3],
         k: f32,
     },
     Displace {
         rev: bool,
         #[reflect(ignore)]
-        pad: u16,
+        _pad: u16,
         strength: f32,
     },
 }

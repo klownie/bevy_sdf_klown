@@ -21,7 +21,7 @@ impl SdOperatingOn {
 }
 
 #[macro_export]
-macro_rules! patients {
+macro_rules! op_patients {
     // Match exactly two patients
     [ $a:expr, $b:expr $(,)? ] => {
         $crate::engine::hierarchy::SdOperatingOn::spawn((

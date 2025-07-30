@@ -6,7 +6,7 @@
 #import bevy_pbr::mesh_view_types::ClusterableObject
 
 #import bevy_sdf::selectors::{select_shape, select_op};
-#import bevy_sdf::types::{SdMaterial, SdMaterialPacked, SdShapeInstancePacked, pack_distance_info, unpack_sd_shape_instance, unpack_sd_material, unpack_distance_info, SdShapeInstance, SdOpInstance, SdOpInstancePacked, unpack_sd_op_instance, SdOp, SdOpPacked, unpack_sd_op, MarchOutput, DistanceInfo, DistanceInfoPacked}
+#import bevy_sdf::types::{SdMaterial, SdMaterialPacked, SdObjectPacked, pack_distance_info, unpack_sd_object, unpack_sd_material, unpack_distance_info, SdObject, SdOpInstance, SdOpInstancePacked, unpack_sd_op_instance, SdOp, SdOpPacked, unpack_sd_op, MarchOutput, DistanceInfo, DistanceInfoPacked}
 
 @group(1) @binding(0) var depth_texture: texture_depth_2d;
 struct RayMarchCamera {
@@ -23,8 +23,8 @@ struct RayMarchCamera {
 }
 @group(1) @binding(1) var<uniform> settings: RayMarchCamera;
 
-// TODO: seperate the sd_shapes buffer into multiple buffers for more performance
-@group(2) @binding(0) var<storage, read> sd_shapes: array<SdShapeInstancePacked>;
+// PERF: seperate the sd_object buffer into multiple buffers for more performance
+@group(2) @binding(0) var<storage, read> sd_object: array<SdObjectPacked>;
 @group(2) @binding(1) var<storage, read> sd_ops: array<SdOpInstancePacked>;
 
 @group(3) @binding(0) var depth_prepass: texture_storage_2d<r16float, write>;
@@ -36,17 +36,17 @@ struct RayMarchCamera {
 @group(3) @binding(6) var scaled_material_prepass: texture_storage_2d<rgba16float, read_write>;
 @group(3) @binding(7) var scaled_mask_prepass: texture_storage_2d<r16float, read_write>;
 
-// TODO: Make op_resut recyce te sapce in te array to get a significant perforamce boost when dealing with large amounts of OPS
+// PERF: Make op_resut recyce te sapce in te array to get a significant perforamce boost when dealing with large amounts of OPS
 const MAX_OPS: u32 = 6;
 var<private> op_results: array<DistanceInfoPacked, MAX_OPS>;
 
-fn shape_to_dist(instance: SdShapeInstance, p: vec3f) -> DistanceInfo {
-    let dist = select_shape(p, instance.shape, instance.transform, instance.modifier);
-    return DistanceInfo(dist, instance.material);
+fn shape_to_dist(obj: SdObject, p: vec3f) -> DistanceInfo {
+    let dist = select_shape(p, obj.shape, obj.transform, obj.modifier);
+    return DistanceInfo(dist, obj.material);
 }
 
 fn blend_material(a: SdMaterial, b: SdMaterial, m: f32) -> SdMaterial {
-    return SdMaterial(mix(b.color, a.color, m),mix(b.roughness, a.roughness, m), mix(b.fresnel, a.fresnel, m), mix(b.metallic, a.metallic, m), mix(b.sss_strength, a.sss_strength, m), mix(b.sss_radius, a.sss_radius, m));
+    return SdMaterial(mix(b.color, a.color, m), mix(b.roughness, a.roughness, m), mix(b.fresnel, a.fresnel, m), mix(b.metallic, a.metallic, m), mix(b.sss_strength, a.sss_strength, m), mix(b.sss_radius, a.sss_radius, m));
 }
 
 fn blend_distance_info(a: DistanceInfo, b: DistanceInfo, op: SdOp) -> DistanceInfo {
@@ -54,28 +54,28 @@ fn blend_distance_info(a: DistanceInfo, b: DistanceInfo, op: SdOp) -> DistanceIn
     let d_blend = blend.x;
     let m = blend.y;
 
-    return DistanceInfo(d_blend,blend_material(a.material, b.material, m));
+    return DistanceInfo(d_blend, blend_material(a.material, b.material, m));
 }
 
 fn map(p: vec3f) -> DistanceInfo {
-    let n_shapes = arrayLength(&sd_shapes);
+    let n_shapes = arrayLength(&sd_object);
     let n_ops = arrayLength(&sd_ops);
-    
+
     for (var e = 0u; e < n_ops; e++) {
         let op = unpack_sd_op_instance(sd_ops[e]);
         var lhs_info: DistanceInfo;
         var rhs_info: DistanceInfo;
 
         // Handle LHS
-        if (op.lhs < n_shapes) {
-            lhs_info = shape_to_dist(unpack_sd_shape_instance(sd_shapes[op.lhs]), p);
+        if op.lhs < n_shapes {
+            lhs_info = shape_to_dist(unpack_sd_object(sd_object[op.lhs]), p);
         } else {
             lhs_info = unpack_distance_info(op_results[op.lhs - n_shapes]);
         }
 
         // Handle RHS
-        if (op.rhs < n_shapes) {
-            rhs_info = shape_to_dist(unpack_sd_shape_instance(sd_shapes[op.rhs]), p);
+        if op.rhs < n_shapes {
+            rhs_info = shape_to_dist(unpack_sd_object(sd_object[op.rhs]), p);
         } else {
             rhs_info = unpack_distance_info(op_results[op.rhs - n_shapes]);
         }
@@ -130,10 +130,7 @@ fn normal(p: vec3f) -> vec3f {
     let h = settings.normal_eps;
     let k = vec2(1., -1.);
     return normalize(
-        k.xyy * map(p + k.xyy * h).dist +
-        k.yyx * map(p + k.yyx * h).dist +
-        k.yxy * map(p + k.yxy * h).dist +
-        k.xxx * map(p + k.xxx * h).dist
+        k.xyy * map(p + k.xyy * h).dist + k.yyx * map(p + k.yyx * h).dist + k.yxy * map(p + k.yxy * h).dist + k.xxx * map(p + k.xxx * h).dist
     );
 }
 
@@ -153,7 +150,7 @@ fn softshadow(
         res = min(res, h / (softness * t));
         t += clamp(h, 0.005, 0.5);
 
-        if (res < -1.0 || t > max_dist) {
+        if res < -1.0 || t > max_dist {
             break;
         }
     }
@@ -164,15 +161,15 @@ fn softshadow(
 
 fn shadow(
     ro: vec3f,
-    rd: vec3f, 
-    eps: f32, 
-    max_dist: f32, 
+    rd: vec3f,
+    eps: f32,
+    max_dist: f32,
     max_steps: u32
 ) -> f32 {
     var t = eps;
     for (var i = 0u; i < max_steps && t < max_dist; i++) {
         let h = map(ro + rd * t).dist;
-        if (h < 0.001) {
+        if h < 0.001 {
             return 0.0;
         }
         t = t + h;
@@ -217,8 +214,7 @@ fn apply_ambient(material: SdMaterial) -> vec3f {
 }
 
 fn should_skip_light(light: ClusterableObject) -> bool {
-    return light.color_inverse_square_range.w <= 0.0 ||
-           all(light.color_inverse_square_range.rgb == vec3f(0.0));
+    return light.color_inverse_square_range.w <= 0.0 || all(light.color_inverse_square_range.rgb == vec3f(0.0));
 }
 
 fn apply_light_contribution(
@@ -239,7 +235,7 @@ fn apply_light_contribution(
     let dist = sqrt(dist_sq);
 
     // === AO and Shadowing ===
-    
+
     let ao = calc_ao(ro, normal);
 
     let visibility = shadow(
@@ -289,7 +285,7 @@ fn compute_sss(
     material: SdMaterial
 ) -> vec3f {
     var sss_contrib = vec3f(0.0);
-    if (material.sss_strength <= 0.0) {
+    if material.sss_strength <= 0.0 {
         return sss_contrib;
     }
 
@@ -304,18 +300,18 @@ fn compute_sss(
 
     for (var t = dt; t < 5.0; t = t * mult) {
         dt = (mult - 1.0) * t;
-        if (t > 20.0 * clength) { break; }
+        if t > 20.0 * clength { break; }
 
-        let d0 = map(ro  - normal/* <-- ??????? */ + t * rd).dist;
-        if (d0 > 0.0) { break; }
+        let d0 = map(ro - normal/* <-- ??????? */ + t * rd).dist;
+        if d0 > 0.0 { break; }
 
         let l1 = clength;
         let ds = map(ro + t * rd + l1 * light_dir).dist;
         let denom = ds - d0;
-        if (abs(denom) < 0.0001) { continue; }
+        if abs(denom) < 0.0001 { continue; }
 
         let t1 = -d0 * l1 / denom;
-        if (t1 < 0.0) { continue; }
+        if t1 < 0.0 { continue; }
 
         let T0 = exp(-t * sigma_s);
         let T = exp(-(t + t1) * sigma_s);
@@ -332,7 +328,7 @@ fn compute_sss(
 
 @compute @workgroup_size(8, 8, 1)
 fn init(@builtin(global_invocation_id) id: vec3u) {
-    
+
     let buffer_size = view.viewport.zw;
 
     let frag_coord = vec2f(id.xy);
@@ -341,14 +337,14 @@ fn init(@builtin(global_invocation_id) id: vec3u) {
     var march_uv = uv * 2.0 - 1.0;
     march_uv.y *= -1.0;
     march_uv /= settings.depth_scale;
-    
-    let downscaled_coord = ( frag_coord - ((buffer_size / 2.0)  * (1.0 - settings.depth_scale)) ) / settings.depth_scale ;
+
+    let downscaled_coord = (frag_coord - ((buffer_size / 2.0) * (1.0 - settings.depth_scale))) / settings.depth_scale ;
 
     // prevent overdraw
-    if (any(march_uv >= vec2(1.)) || any(march_uv <= vec2(-1.))) {
+    if any(march_uv >= vec2(1.)) || any(march_uv <= vec2(-1.)) {
         return;
     }
-    
+
     let temp = view.world_from_clip * vec4f(march_uv, 1.0, 1.0);
     let ro = temp.xyz / temp.w;
     let rd = normalize(ro * view.world_from_clip[2].w - view.world_from_clip[2].xyz);
@@ -365,7 +361,7 @@ fn init(@builtin(global_invocation_id) id: vec3u) {
     let depth = select(ray_depth, -1.0, m.depth > settings.max_distance);
 
     textureStore(scaled_depth_prepass, id.xy, vec4f(ray_depth));
-    textureStore(scaled_normal_prepass, id.xy, vec4f(vec3f(m.normal *.5+.5), 1.));
+    textureStore(scaled_normal_prepass, id.xy, vec4f(vec3f(m.normal * .5 + .5), 1.));
     textureStore(scaled_material_prepass, id.xy, vec4f(vec3f(material), 1.));
 
     let mask = f32(depth > world_depth);
@@ -375,10 +371,10 @@ fn init(@builtin(global_invocation_id) id: vec3u) {
 
 @compute @workgroup_size(8, 8, 1)
 fn scale(@builtin(global_invocation_id) id: vec3u) {
-    let buffer_size = view.viewport.zw; 
+    let buffer_size = view.viewport.zw;
     let frag_coord = vec2f(id.xy);
-    let upscaled_coord = (frag_coord - (buffer_size *0.5) ) * settings.depth_scale + (buffer_size *0.5);
-    
+    let upscaled_coord = (frag_coord - (buffer_size * 0.5)) * settings.depth_scale + (buffer_size * 0.5);
+
     let depth_pass = textureLoad(scaled_depth_prepass, vec2u(upscaled_coord));
     let normal_pass = textureLoad(scaled_normal_prepass, vec2u(upscaled_coord));
     let material_pass = textureLoad(scaled_material_prepass, vec2u(upscaled_coord));

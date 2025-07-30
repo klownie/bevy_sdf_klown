@@ -359,7 +359,7 @@ fn sdMandelbulb(p: vec3f, iter: f32, expo: f32, b_offset: f32) -> f32 {
         dz = dz * expo * pow(m, pw) + 1.0;
 
         let r = length(z);
-        if (r == 0.0) {
+        if r == 0.0 {
             break;
         }
 
@@ -371,7 +371,7 @@ fn sdMandelbulb(p: vec3f, iter: f32, expo: f32, b_offset: f32) -> f32 {
         z = p + pow(r, expo) * vec3f(sin(b) * sin(a), cos(b), sin(b) * cos(a));
         m = dot(z, z);
 
-        if (m > 256.0) {
+        if m > 256.0 {
             break;
         }
     }
@@ -400,7 +400,7 @@ fn sdJuliaQuaternion(p: vec3f, iter: f32) -> f32 {
         z = z2 + c;
 
         mz2 = dot(z, z);
-        if (mz2 > 4.0) {
+        if mz2 > 4.0 {
             break;
         }
     }
@@ -422,7 +422,7 @@ fn sdMengerSponge(p: vec3f, iter: f32) -> f32 {
         let dc = max(r.z, r.x);
         let c = (min(da, min(db, dc)) - 1.0) / s;
 
-        if (c > d) {
+        if c > d {
             d = c;
         }
     }
@@ -529,19 +529,19 @@ fn opDisplace(d1: f32, d2: f32, strength: f32) -> vec2f {
 
 // Twist - bound
 fn opTwist(p: vec3f, k: f32) -> vec3f {
-  let s = sin(k * p.z);
-  let c = cos(k * p.z);
-  let m = mat2x2<f32>(vec2f(c, s), vec2f(-s, c));
-  return vec3f(m * p.xy, p.z);
+    let s = sin(k * p.z);
+    let c = cos(k * p.z);
+    let m = mat2x2<f32>(vec2f(c, s), vec2f(-s, c));
+    return vec3f(m * p.xy, p.z);
 }
 //let d = sdfPrimitive3d(opTwist(p, k));
 
 // Bend - bound
 fn opCheapBend(p: vec3f, k: f32) -> vec3f {
-  let s = sin(k * p.x);
-  let c = cos(k * p.x);
-  let m = mat2x2<f32>(vec2f(c, s), vec2f(-s, c));
-  return vec3f(m * p.xy, p.z);
+    let s = sin(k * p.x);
+    let c = cos(k * p.x);
+    let m = mat2x2<f32>(vec2f(c, s), vec2f(-s, c));
+    return vec3f(m * p.xy, p.z);
 }
 //let d = sdfPrimitive3d(opCheapBend(p, k));
 

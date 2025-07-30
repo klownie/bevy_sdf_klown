@@ -16,10 +16,10 @@ use bevy::{
 use camera::RayMarchCamera;
 use hierarchy::{InitSkeinSdRelationShip, SdOperatedBy, SdOperatingOn};
 use nodes::RayMarchEngineNode;
+use object::{SdMaterial, SdMod, SdObject, SdShape, SdTransform};
 use op::{SdOp, SdOpInstance};
 use pipeline::RayMarchEnginePipeline;
 use prepass::prepare_ray_march_resources;
-use shape::{SdMaterial, SdMod, SdShape, SdShapeInstance, SdTransform};
 use write_back::MarchWriteBackPlugin;
 
 mod nodes;
@@ -29,9 +29,9 @@ mod write_back;
 
 pub mod camera;
 pub mod hierarchy;
+pub mod object;
 pub mod op;
 pub mod prepass;
-pub mod shape;
 
 const RAY_MARCH_MAIN_PASS_HANDLE: Handle<Shader> =
     weak_handle!("ca4a5dbf-4da9-4779-bcdc-dd3186088e08");
@@ -187,7 +187,7 @@ fn update_ray_march_buffer(
             rot: Vec3::from(transform.rotation().to_euler(EulerRot::XYZ)),
         };
 
-        sd_shape_buffer.data.push(SdShapeInstance {
+        sd_shape_buffer.data.push(SdObject {
             shape,
             material,
             modifier,
@@ -223,7 +223,7 @@ fn update_ray_march_buffer(
 #[derive(Resource, Reflect, Default, Clone, ExtractResource)]
 #[reflect(Resource, Default)]
 pub struct SdShapeStorage {
-    pub data: Vec<SdShapeInstance>,
+    pub data: Vec<SdObject>,
 }
 
 #[derive(Resource, Reflect, Debug, Default, Clone, ExtractResource)]

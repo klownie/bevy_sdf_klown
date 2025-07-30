@@ -3,13 +3,13 @@ use bevy::prelude::*;
 use bevy_egui::EguiPlugin;
 use bevy_inspector_egui::quick::WorldInspectorPlugin;
 use bevy_panorbit_camera::{PanOrbitCamera, PanOrbitCameraPlugin};
-use bevy_sdf_klown::engine::shape::SdMod;
+use bevy_sdf_klown::engine::object::SdMod;
 use bevy_sdf_klown::engine::{
     camera::RayMarchCamera,
+    object::{SdMaterial, SdShape},
     op::SdOp,
-    shape::{SdMaterial, SdShape},
 };
-use bevy_sdf_klown::{RayMarchingPlugin, patients};
+use bevy_sdf_klown::{RayMarchingPlugin, op_patients};
 
 fn main() {
     App::new()
@@ -44,9 +44,9 @@ fn setup(mut commands: Commands, mut materials: ResMut<Assets<StandardMaterial>>
     commands.spawn((
         SdOp::SmoothUnion {
             k: 1.0,
-            pad: [0; 3],
+            _pad: [0; 3],
         },
-        patients![
+        op_patients![
             (
                 SdShape::Box {
                     bounds: Vec3::new(10.0, 0.1, 10.0),
@@ -62,7 +62,7 @@ fn setup(mut commands: Commands, mut materials: ResMut<Assets<StandardMaterial>>
             ),
             (
                 SdOp::Union,
-                patients![
+                op_patients![
                     (
                         SdShape::Box {
                             bounds: Vec3::new(1.0, 1.0, 1.0),

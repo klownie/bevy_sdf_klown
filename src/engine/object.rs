@@ -4,7 +4,7 @@ use std::mem::transmute;
 use bevy::render::render_resource::ShaderType;
 
 #[derive(ShaderType, Clone, Copy)]
-pub struct SdShapeUniformInstance {
+pub struct SdObjectUniform {
     pub shape: SdShapeUniform,
     pub material: SdMaterialUniform,
     pub modifier: SdModUniform,
@@ -12,7 +12,7 @@ pub struct SdShapeUniformInstance {
 }
 
 #[derive(Reflect, Debug, Copy, Clone)]
-pub struct SdShapeInstance {
+pub struct SdObject {
     pub shape: SdShape,
     pub material: SdMaterial,
     pub modifier: SdMod,
