@@ -5,7 +5,7 @@ use bevy_inspector_egui::quick::WorldInspectorPlugin;
 use bevy_panorbit_camera::{PanOrbitCamera, PanOrbitCameraPlugin};
 use bevy_sdf_klown::engine::{
     camera::RayMarchCamera,
-    object::{SdMaterial, SdMod, SdShape},
+    object::{SdMaterial, SdMod, SdModStack, SdShape},
     op::SdOp,
 };
 use bevy_sdf_klown::{RayMarchingPlugin, op_patients};
@@ -38,7 +38,9 @@ fn setup(mut commands: Commands) {
                 SdShape::Box {
                     bounds: Vec3::new(10.0, 5.0, 10.0),
                 },
-                SdMod::Twist { k: 0.1 },
+                SdModStack {
+                    modifiers: vec![SdMod::Twist { k: 0.1 }]
+                },
                 AnimateTwitModifier,
                 Transform::from_xyz(0.0, -2.5, 0.0),
                 SdMaterial {
@@ -51,7 +53,9 @@ fn setup(mut commands: Commands) {
                 SdShape::Box {
                     bounds: Vec3::new(2.0, 4.0, 2.0)
                 },
-                SdMod::CheapBend { k: 0.3 },
+                SdModStack {
+                    modifiers: vec![SdMod::CheapBend { k: 0.3 }]
+                },
                 Transform::from_xyz(0.0, 1.9, 0.0),
                 SdMaterial {
                     color: Vec4::new(0.7, 0.1, 0.5, 1.0),
@@ -109,15 +113,17 @@ fn setup(mut commands: Commands) {
 struct AnimateTwitModifier;
 
 fn animate_twist_modifier(
-    mut query: Query<&mut SdMod, With<AnimateTwitModifier>>,
+    mut query: Query<&mut SdModStack, With<AnimateTwitModifier>>,
     time: Res<Time>,
 ) {
-    for mut shape in query.iter_mut() {
-        if let SdMod::Twist { k, .. } = &mut *shape {
-            let eas_func = EaseFunction::SmootherStep;
-            *k = eas_func.sample_unchecked(time.elapsed_secs().sin().abs())
-                * time.elapsed_secs_wrapped().sin().signum()
-                / 10.0;
+    for mut stack in query.iter_mut() {
+        for modifier in stack.modifiers.iter_mut() {
+            if let SdMod::Twist { k, .. } = modifier {
+                let eas_func = EaseFunction::SmootherStep;
+                *k = eas_func.sample_unchecked(time.elapsed_secs().sin().abs())
+                    * time.elapsed_secs_wrapped().sin().signum()
+                    / 10.0;
+            }
         }
     }
 }

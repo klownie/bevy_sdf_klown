@@ -20,11 +20,13 @@ use bevy::{
     },
 };
 
+use crate::engine::object::{SdModStackUniform, SdModUniform};
+
 use super::object::SdObjectUniform;
 use super::op::SdOpUniformInstance;
 use super::pipeline::RayMarchEnginePipeline;
 use super::prepass::RayMarchPrepass;
-use super::{RayMarchCamera, SdOpStorage, SdShapeStorage, WORKGROUP_SIZE};
+use super::{RayMarchCamera, SdObjectStorage, SdOpStorage, WORKGROUP_SIZE};
 
 #[derive(Default)]
 pub struct RayMarchEngineNode;
@@ -46,7 +48,7 @@ impl ViewNode for RayMarchEngineNode {
         _graph: &mut RenderGraphContext,
         render_context: &mut RenderContext,
         (
-            _view_target,
+            view_target,
             camera,
             _ray_march_settings,
             settings_index,
@@ -93,7 +95,7 @@ impl ViewNode for RayMarchEngineNode {
             "ray_march_texture_bind_group",
             &ray_march_pipeline.texture_layout,
             &BindGroupEntries::sequential((
-                // view_target.main_texture_view(),
+                // view_target.get_unsampled_color_attachment().view,
                 view_prepass.depth_view().unwrap(),
                 settings_binding.clone(),
             )),
@@ -109,17 +111,31 @@ impl ViewNode for RayMarchEngineNode {
             )),
         );
 
-        let mut sd_shape_buf = BufferVec::<SdObjectUniform>::new(BufferUsages::STORAGE);
-        let res_shape = &world.resource::<SdShapeStorage>().data;
-        sd_shape_buf.reserve(res_shape.len(), device);
-        for shape in res_shape.iter() {
-            sd_shape_buf.push(SdObjectUniform {
-                shape: shape.shape.clone().uniform(),
-                material: shape.material.uniform(),
-                modifier: shape.modifier.uniform(),
-                transform: shape.transform.uniform(),
+        let res_obj = &world.resource::<SdObjectStorage>().data;
+
+        let mut sd_mod_buf = BufferVec::<SdModUniform>::new(BufferUsages::STORAGE);
+        let mut sd_object_buf = BufferVec::<SdObjectUniform>::new(BufferUsages::STORAGE);
+        sd_object_buf.reserve(res_obj.len(), device);
+
+        let mut current_mod_index = 0;
+
+        for obj in res_obj.iter() {
+            // Push modifiers and count them
+            let start_index = current_mod_index;
+            for &modifier in &obj.modifiers.modifiers {
+                sd_mod_buf.push(modifier.uniform());
+                current_mod_index += 1;
+            }
+
+            sd_object_buf.push(SdObjectUniform {
+                shape: obj.shape.clone().uniform(),
+                material: obj.material.uniform(),
+                modifiers: obj.modifiers.clone().uniform(start_index),
+                transform: obj.transform.uniform(),
             });
         }
+
+        sd_mod_buf.reserve(current_mod_index, device);
 
         let mut sd_op_buf = BufferVec::<SdOpUniformInstance>::new(BufferUsages::STORAGE);
         let res_op = &world.resource::<SdOpStorage>().data;
@@ -128,14 +144,20 @@ impl ViewNode for RayMarchEngineNode {
             sd_op_buf.push(op.uniform());
         }
 
-        sd_shape_buf.write_buffer(device, queue);
+        sd_mod_buf
+            .is_empty()
+            .then(|| sd_mod_buf.push(SdModUniform::default()));
+
+        sd_mod_buf.write_buffer(device, queue);
+        sd_object_buf.write_buffer(device, queue);
         sd_op_buf.write_buffer(device, queue);
 
         let storage_bind_group = device.create_bind_group(
             "marcher_storage_bind_group",
             &ray_march_pipeline.storage_layout,
             &BindGroupEntries::sequential((
-                sd_shape_buf.binding().unwrap(),
+                sd_mod_buf.binding().unwrap(),
+                sd_object_buf.binding().unwrap(),
                 sd_op_buf.binding().unwrap(),
             )),
         );

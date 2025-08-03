@@ -3,19 +3,24 @@
 struct SdObject {
     shape: SdShape,
     material: SdMaterial,
-    modifier: SdMod,
+    modifiers: SdModStack,
     transform: SdTransform,
 }
 
 struct SdObjectPacked {
     shape: SdShape,
     material: SdMaterialPacked,
-    modifier: SdModPacked,
+    modifiers: SdModStackPacked,
     transform: SdTransform,
 }
 
 fn unpack_sd_object(packed: SdObjectPacked) -> SdObject {
-    return SdObject(packed.shape, unpack_sd_material(packed.material), unpack_sd_mod(packed.modifier), packed.transform);
+    return SdObject(
+        packed.shape,
+        unpack_sd_material(packed.material),
+        unpack_sd_mod_stack(packed.modifiers),
+        packed.transform
+    );
 }
 
 struct SdShape {
@@ -67,14 +72,23 @@ struct SdMod {
     data: vec4f,
 }
 
-struct SdModPacked {
-    id: u32,
-    data: vec4f,
+struct SdModStack {
+    start_index: u32,
+    len: u32,
 }
 
-fn unpack_sd_mod(packed: SdModPacked) -> SdMod {
-    // let data = unpack4x8unorm(packed.data);
-    return SdMod(packed.id, packed.data);
+struct SdModStackPacked {
+    start_index_and_length: u32,
+}
+
+fn unpack_sd_mod_stack(packed: SdModStackPacked) -> SdModStack {
+    let start_index = packed.start_index_and_length >> 16u;
+    let len = packed.start_index_and_length & 0xFFFFu;
+
+    return SdModStack(
+        start_index,
+        len,
+    );
 }
 
 struct SdTransform {

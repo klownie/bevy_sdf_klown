@@ -7,15 +7,15 @@ use bevy::render::render_resource::ShaderType;
 pub struct SdObjectUniform {
     pub shape: SdShapeUniform,
     pub material: SdMaterialUniform,
-    pub modifier: SdModUniform,
+    pub modifiers: SdModStackUniform,
     pub transform: SdTransformUniform,
 }
 
-#[derive(Reflect, Debug, Copy, Clone)]
+#[derive(Reflect, Debug, Clone)]
 pub struct SdObject {
     pub shape: SdShape,
     pub material: SdMaterial,
-    pub modifier: SdMod,
+    pub modifiers: SdModStack,
     pub transform: SdTransform,
 }
 
@@ -27,7 +27,7 @@ pub struct SdShapeUniform {
 
 #[repr(u32)]
 #[derive(Reflect, Component, Debug, Copy, Clone)]
-#[require(Name::new("SdShape"), SdMod::Empty, Transform)]
+#[require(Name::new("SdObject"), SdModStack, Transform)]
 #[reflect(Component)]
 pub enum SdShape {
     Sphere {
@@ -176,15 +176,14 @@ impl SdShape {
     }
 }
 
-#[derive(ShaderType, Clone, Copy)]
+#[derive(ShaderType, Default, Clone, Debug, Copy)]
 pub struct SdModUniform {
     pub id: u32,
     pub data: Vec4,
 }
 
 #[repr(u32)]
-#[derive(Reflect, Component, Debug, Clone, Copy)]
-#[reflect(Component)]
+#[derive(Reflect, Debug, Clone, Copy)]
 pub enum SdMod {
     Twist { k: f32 },
     CheapBend { k: f32 },
@@ -194,7 +193,12 @@ pub enum SdMod {
     InfArray { c: Vec3 },
     LimArray { c: f32, lim: Vec3 },
     Elongate { h: Vec3 },
-    Empty,
+}
+
+impl Default for SdMod {
+    fn default() -> Self {
+        Self::Twist { k: 0.0 }
+    }
 }
 
 impl SdMod {
@@ -204,6 +208,28 @@ impl SdMod {
         SdModUniform {
             id: bytes[0],
             data: pack,
+        }
+    }
+}
+
+#[derive(Reflect, Component, Default, Debug, Clone)]
+#[reflect(Component, Default)]
+pub struct SdModStack {
+    pub modifiers: Vec<SdMod>,
+}
+
+#[derive(ShaderType, Clone, Copy)]
+pub struct SdModStackUniform {
+    pub start_index_and_lenght: u32,
+}
+
+impl SdModStack {
+    pub fn uniform(self, start_index: usize) -> SdModStackUniform {
+        let start = start_index as u16 as u32;
+        let len = self.modifiers.len() as u16 as u32;
+
+        SdModStackUniform {
+            start_index_and_lenght: (start << 16) | len,
         }
     }
 }

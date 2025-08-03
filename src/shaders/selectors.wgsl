@@ -2,12 +2,15 @@
 
 #import bevy_sdf::utils::{sdSphere, sdEllipsoid, sdBox, sdRoundBox, sdBoxFrame, sdGyroid, sdTorus, sdCappedTorus, sdLink, sdVerticalCapsule, sdCapsule, sdCylinder, sdVerticalCylinder, sdRoundedCylinder, sdInfiniteCylinder, sdCone, sdConeBound, sdInfiniteCone, sdCappedVerticalCone, sdCappedCone, sdRoundVerticalCone, sdRoundCone, sdSolidAngle, sdPlane, sdOctahedron, sdOctahedronBound, sdPyramid, sdHexPrism, sdTriPrism, udTriangle, sdBunny, sdMandelbulb, sdJuliaQuaternion, sdMengerSponge}
 #import bevy_sdf::utils::{opUnion, opSubtract, opIntersect, opChamferUnion, opChamferSubtract, opChamferIntersect, opSmoothUnion, opSmoothSubtract, opSmoothIntersect, opDisplace, opTwist, opCheapBend, opTranslate, op90RotateX, op90RotateY, op90RotateZ, opRotateX, opRotateY, opRotateZ, opRotateE, OpRotateEuler, opScale, opSymmetryX, opSymmetryY, opSymmetryZ, opInfArray, opLimArray, opElongate, opElongateCorrect, opOnion, opExtrusion, opRevolution}
-#import bevy_sdf::types::{SdShape, SdTransform, SdMod}
+#import bevy_sdf::types::{SdShape, SdTransform, SdMod, SdModStack}
 
-fn select_shape(p: vec3f, shape: SdShape, transform: SdTransform, modifier: SdMod) -> f32 {
+fn select_shape(p: vec3f, shape: SdShape, transform: SdTransform, modifiers: SdModStack) -> f32 {
     let shape_data = shape.data * 0.5; //scale it to match blender
     var pos = apply_transform(p, transform);
-    pos = apply_mod(pos, modifier);
+
+    for (var i = 0u; i < modifiers.len; i++) {
+        pos = apply_mod(pos, sd_mod[modifiers.start_index + i]);
+    }
     switch shape.id {
         case 0u, default {
             return sdSphere(pos, shape_data[0].x);

@@ -19,11 +19,13 @@ bevy = { version = "0.16.1", default-features = false, features = [
     "bevy_pbr",
     "bevy_render",
     "bevy_text",
+    "bevy_log",
     "bevy_ui",
     "bevy_window",
     "bevy_winit",
     "default_font",
     "hdr",
+    "tonemapping_luts",
     "multi_threaded",
     "wayland"
 ]}

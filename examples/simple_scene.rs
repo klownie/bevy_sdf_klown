@@ -1,9 +1,11 @@
+use std::f32::consts::FRAC_PI_2;
+
 use bevy::core_pipeline::prepass::DepthPrepass;
 use bevy::prelude::*;
 use bevy_egui::EguiPlugin;
 use bevy_inspector_egui::quick::WorldInspectorPlugin;
 use bevy_panorbit_camera::{PanOrbitCamera, PanOrbitCameraPlugin};
-use bevy_sdf_klown::engine::object::SdMod;
+use bevy_sdf_klown::engine::object::{SdMod, SdModStack};
 use bevy_sdf_klown::engine::{
     camera::RayMarchCamera,
     object::{SdMaterial, SdShape},
@@ -48,36 +50,44 @@ fn setup(mut commands: Commands, mut materials: ResMut<Assets<StandardMaterial>>
         },
         op_patients![
             (
-                SdShape::Box {
-                    bounds: Vec3::new(10.0, 0.1, 10.0),
+                SdShape::BoxFrame {
+                    bounds: Vec3::splat(3.0),
+                    edge: 0.5
                 },
-                SdMaterial {
-                    color: Vec4::new(0.3, 0.5, 0.3, 1.0),
-                    roughness: 0.5,
-                    ..default()
-                },
-                SdMod::InfArray {
-                    c: Vec3::new(12.0, 10000.0, 12.0),
-                },
+                Transform::from_xyz(0.0, 1.0, 0.0).with_rotation(Quat::from_rotation_x(FRAC_PI_2)),
+                MeshMaterial3d(materials.add(Color::srgb(1., 1., 1.))),
             ),
             (
-                SdOp::Union,
+                SdOp::ChamferIntersect {
+                    _pad: [0; 3],
+                    radius: 0.2
+                },
                 op_patients![
                     (
-                        SdShape::Box {
-                            bounds: Vec3::new(1.0, 1.0, 1.0),
+                        SdShape::RoundedCylinder {
+                            height: 2.0,
+                            radius: 2.0,
+                            edge_radius: 1.0
                         },
-                        Transform::from_xyz(-0.5, 0.5, 0.0),
-                        MeshMaterial3d(materials.add(Color::srgb(1., 1., 1.))),
+                        SdMaterial {
+                            color: Vec4::new(0.3, 0.5, 0.3, 1.0),
+                            roughness: 0.5,
+                            ..default()
+                        },
+                        Transform::from_xyz(0.0, -2.0, 0.0),
+                        SdModStack {
+                            modifiers: vec![
+                                SdMod::Elongate {
+                                    h: Vec3::new(3.0, 0.0, 3.0)
+                                },
+                                SdMod::InfArray {
+                                    c: Vec3::new(5.0, 10000.0, 5.0),
+                                },
+                            ]
+                        },
                     ),
                     (
-                        SdShape::VerticalCapsule {
-                            height: 1.5,
-                            radius: 1.0,
-                        },
-                        SdMod::InfArray {
-                            c: Vec3::new(5.0, 1000.0, 4.0),
-                        },
+                        SdShape::Gyroid { height: 2.5 },
                         Transform::from_xyz(2.0, 0.5, 0.0),
                         MeshMaterial3d(materials.add(Color::srgb(0.5, 0.5, 1.))),
                     )

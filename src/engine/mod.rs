@@ -22,6 +22,8 @@ use pipeline::RayMarchEnginePipeline;
 use prepass::prepare_ray_march_resources;
 use write_back::MarchWriteBackPlugin;
 
+use crate::engine::object::SdModStack;
+
 mod nodes;
 mod pipeline;
 
@@ -86,7 +88,7 @@ impl Plugin for RayMarchEnginePlugin {
         app.add_plugins((
             ExtractComponentPlugin::<RayMarchCamera>::default(),
             UniformComponentPlugin::<RayMarchCamera>::default(),
-            ExtractResourcePlugin::<SdShapeStorage>::default(),
+            ExtractResourcePlugin::<SdObjectStorage>::default(),
             ExtractResourcePlugin::<SdOpStorage>::default(),
         ))
         .add_systems(PostUpdate, update_ray_march_buffer)
@@ -95,10 +97,11 @@ impl Plugin for RayMarchEnginePlugin {
         .register_type::<SdShape>()
         .register_type::<SdOp>()
         .register_type::<SdMod>()
+        .register_type::<SdModStack>()
         .register_type::<SdIndex>()
         .register_type::<InitSkeinSdRelationShip>()
         .register_type::<SdMaterial>()
-        .init_resource::<SdShapeStorage>()
+        .init_resource::<SdObjectStorage>()
         .init_resource::<SdOpStorage>();
 
         let Some(render_app) = app.get_sub_app_mut(RenderApp) else {
@@ -143,14 +146,14 @@ fn update_ray_march_buffer(
     sdf_shape_query: Query<
         (
             &SdShape,
-            &SdMod,
+            &SdModStack,
             &GlobalTransform,
             Option<&MeshMaterial3d<StandardMaterial>>,
             Option<&SdMaterial>,
         ),
         With<SdOperatedBy>,
     >,
-    mut sd_shape_buffer: ResMut<SdShapeStorage>,
+    mut sd_object_buffer: ResMut<SdObjectStorage>,
     sdf_op_query: Query<(&SdOp, &SdIndex, &SdOperatingOn)>,
     mut sd_op_buffer: ResMut<SdOpStorage>,
     material_as: Res<Assets<StandardMaterial>>,
@@ -159,11 +162,11 @@ fn update_ray_march_buffer(
     let mut current_shape_index = 0;
     let mut current_op_index = 0;
 
-    sd_shape_buffer.data = Vec::with_capacity(nb_shapes as usize);
+    sd_object_buffer.data = Vec::with_capacity(nb_shapes as usize);
     sd_op_buffer.data = Vec::with_capacity(sdf_op_query.iter().len());
 
     let mut push_shape = |entity: Entity| -> Option<u16> {
-        let (&shape, &modifier, transform, some_mat_handle, some_sd_mat) =
+        let (&shape, modifiers, transform, some_mat_handle, some_sd_mat) =
             sdf_shape_query.get(entity).ok()?;
 
         let material = match (some_mat_handle, some_sd_mat) {
@@ -187,10 +190,10 @@ fn update_ray_march_buffer(
             rot: Vec3::from(transform.rotation().to_euler(EulerRot::XYZ)),
         };
 
-        sd_shape_buffer.data.push(SdObject {
+        sd_object_buffer.data.push(SdObject {
             shape,
             material,
-            modifier,
+            modifiers: modifiers.clone(),
             transform,
         });
 
@@ -216,13 +219,13 @@ fn update_ray_march_buffer(
 
         sd_op_buffer.data.push(SdOpInstance { op, lhs, rhs });
     }
-    // info!("{:#?}", sd_op_buffer.data);
-    // info!("{:#?}", sd_shape_buffer.data);
+    // log::info!("{:#?}", sd_op_buffer.data);
+    // log::info!("objects :{:#?}", sd_object_buffer.data);
 }
 
 #[derive(Resource, Reflect, Default, Clone, ExtractResource)]
 #[reflect(Resource, Default)]
-pub struct SdShapeStorage {
+pub struct SdObjectStorage {
     pub data: Vec<SdObject>,
 }
 
