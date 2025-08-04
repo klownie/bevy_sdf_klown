@@ -54,7 +54,12 @@ fn setup(mut commands: Commands) {
                     bounds: Vec3::new(2.0, 4.0, 2.0)
                 },
                 SdModStack {
-                    modifiers: vec![SdMod::CheapBend { k: 0.3 }]
+                    modifiers: vec![
+                        SdMod::CheapBend { k: 0.3 },
+                        SdMod::Elongate {
+                            h: Vec3::new(0.0, 2.0, 0.0)
+                        },
+                    ]
                 },
                 Transform::from_xyz(0.0, 1.9, 0.0),
                 SdMaterial {

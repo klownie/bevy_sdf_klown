@@ -11,7 +11,7 @@ use bevy::{
             },
         },
         renderer::RenderDevice,
-        view::{ViewTarget, ViewUniform},
+        view::ViewUniform,
     },
 };
 

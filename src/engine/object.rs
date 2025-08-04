@@ -27,7 +27,7 @@ pub struct SdShapeUniform {
 
 #[repr(u32)]
 #[derive(Reflect, Component, Debug, Copy, Clone)]
-#[require(Name::new("SdObject"), SdModStack, Transform)]
+#[require(Name::new("SdObject"), SdModStack, Transform, GlobalTransform)]
 #[reflect(Component)]
 pub enum SdShape {
     Sphere {
@@ -184,7 +184,16 @@ pub struct SdModUniform {
 
 #[repr(u32)]
 #[derive(Reflect, Debug, Clone, Copy)]
+#[reflect(Default)]
 pub enum SdMod {
+    Translate { t: Vec3 },
+    OrthogonalRotateX,
+    OrthogonalRotateY,
+    OrthogonalRotateZ,
+    RotateX { a: f32 },
+    RotateY { a: f32 },
+    RotateZ { a: f32 },
+    RotateEuleur { a: Vec3 },
     Twist { k: f32 },
     CheapBend { k: f32 },
     SymetryX,

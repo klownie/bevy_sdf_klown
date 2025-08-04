@@ -20,7 +20,7 @@ use bevy::{
     },
 };
 
-use crate::engine::object::{SdModStackUniform, SdModUniform};
+use crate::engine::object::SdModUniform;
 
 use super::object::SdObjectUniform;
 use super::op::SdOpUniformInstance;
@@ -48,7 +48,7 @@ impl ViewNode for RayMarchEngineNode {
         _graph: &mut RenderGraphContext,
         render_context: &mut RenderContext,
         (
-            view_target,
+            _view_target,
             camera,
             _ray_march_settings,
             settings_index,
@@ -122,7 +122,7 @@ impl ViewNode for RayMarchEngineNode {
         for obj in res_obj.iter() {
             // Push modifiers and count them
             let start_index = current_mod_index;
-            for &modifier in &obj.modifiers.modifiers {
+            for &modifier in obj.modifiers.modifiers.iter().rev() {
                 sd_mod_buf.push(modifier.uniform());
                 current_mod_index += 1;
             }
@@ -140,7 +140,7 @@ impl ViewNode for RayMarchEngineNode {
         let mut sd_op_buf = BufferVec::<SdOpUniformInstance>::new(BufferUsages::STORAGE);
         let res_op = &world.resource::<SdOpStorage>().data;
         sd_op_buf.reserve(res_op.len(), device);
-        for op in res_op.iter() {
+        for &op in res_op.iter() {
             sd_op_buf.push(op.uniform());
         }
 

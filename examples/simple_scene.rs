@@ -77,11 +77,11 @@ fn setup(mut commands: Commands, mut materials: ResMut<Assets<StandardMaterial>>
                         Transform::from_xyz(0.0, -2.0, 0.0),
                         SdModStack {
                             modifiers: vec![
-                                SdMod::Elongate {
-                                    h: Vec3::new(3.0, 0.0, 3.0)
-                                },
                                 SdMod::InfArray {
                                     c: Vec3::new(5.0, 10000.0, 5.0),
+                                },
+                                SdMod::Elongate {
+                                    h: Vec3::new(3.0, 0.0, 3.0)
                                 },
                             ]
                         },

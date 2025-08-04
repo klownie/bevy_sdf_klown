@@ -1,15 +1,18 @@
 #define_import_path bevy_sdf::selectors
 
 #import bevy_sdf::utils::{sdSphere, sdEllipsoid, sdBox, sdRoundBox, sdBoxFrame, sdGyroid, sdTorus, sdCappedTorus, sdLink, sdVerticalCapsule, sdCapsule, sdCylinder, sdVerticalCylinder, sdRoundedCylinder, sdInfiniteCylinder, sdCone, sdConeBound, sdInfiniteCone, sdCappedVerticalCone, sdCappedCone, sdRoundVerticalCone, sdRoundCone, sdSolidAngle, sdPlane, sdOctahedron, sdOctahedronBound, sdPyramid, sdHexPrism, sdTriPrism, udTriangle, sdBunny, sdMandelbulb, sdJuliaQuaternion, sdMengerSponge}
-#import bevy_sdf::utils::{opUnion, opSubtract, opIntersect, opChamferUnion, opChamferSubtract, opChamferIntersect, opSmoothUnion, opSmoothSubtract, opSmoothIntersect, opDisplace, opTwist, opCheapBend, opTranslate, op90RotateX, op90RotateY, op90RotateZ, opRotateX, opRotateY, opRotateZ, opRotateE, OpRotateEuler, opScale, opSymmetryX, opSymmetryY, opSymmetryZ, opInfArray, opLimArray, opElongate, opElongateCorrect, opOnion, opExtrusion, opRevolution}
+#import bevy_sdf::utils::{
+        opUnion, opSubtract, opIntersect, opChamferUnion, opChamferSubtract, opChamferIntersect, opSmoothUnion, opSmoothSubtract, opSmoothIntersect,
+        opDisplace, opTwist, opCheapBend, opTranslate, op90RotateX, op90RotateY, op90RotateZ, opRotateX, opRotateY, opRotateZ, opRotateE, opRotateEuler, opScale, opSymmetryX, opSymmetryY, opSymmetryZ, opInfArray, opLimArray, opElongate, opElongateCorrect}
 #import bevy_sdf::types::{SdShape, SdTransform, SdMod, SdModStack}
+
 
 fn select_shape(p: vec3f, shape: SdShape, transform: SdTransform, modifiers: SdModStack) -> f32 {
     let shape_data = shape.data * 0.5; //scale it to match blender
     var pos = apply_transform(p, transform);
 
     for (var i = 0u; i < modifiers.len; i++) {
-        pos = apply_mod(pos, sd_mod[modifiers.start_index + i]);
+        pos = apply_mod(pos, sd_mod[modifiers.start_index + i ]);
     }
     switch shape.id {
         case 0u, default {
@@ -117,30 +120,56 @@ fn select_shape(p: vec3f, shape: SdShape, transform: SdTransform, modifiers: SdM
     }
 }
 
+@group(2) @binding(0) var<storage, read> sd_mod: array<SdMod>;
+
 fn apply_mod(p: vec3f, modifier: SdMod) -> vec3f {
     switch modifier.id {
         case 0u {
-            return opTwist(p, modifier.data.x);
+            return p - modifier.data.xyz;
         }
         case 1u {
-            return opCheapBend(p, modifier.data.x);
+            return op90RotateX(p);
         }
         case 2u {
-            return opSymmetryX(p);
+            return op90RotateY(p);
         }
         case 3u {
-            return opSymmetryY(p);
+            return op90RotateZ(p);
         }
         case 4u {
-            return opSymmetryZ(p);
+            return opRotateX(p, modifier.data.x);
         }
         case 5u {
-            return opInfArray(p, modifier.data.xyz);
+            return opRotateY(p, modifier.data.x);
         }
         case 6u {
-            return opLimArray(p, modifier.data.x, modifier.data.yzw);
+            return opRotateZ(p, modifier.data.x);
         }
         case 7u {
+            return opRotateEuler(p, modifier.data.xyz);
+        }
+        case 8u {
+            return opTwist(p, modifier.data.x);
+        }
+        case 9u {
+            return opCheapBend(p, modifier.data.x);
+        }
+        case 10u {
+            return opSymmetryX(p);
+        }
+        case 11u {
+            return opSymmetryY(p);
+        }
+        case 12u {
+            return opSymmetryZ(p);
+        }
+        case 13u {
+            return opInfArray(p, modifier.data.xyz);
+        }
+        case 14u {
+            return opLimArray(p, modifier.data.x, modifier.data.yzw);
+        }
+        case 15u {
             return opElongate(p, modifier.data.xyz);
         }
         case default {
@@ -152,7 +181,7 @@ fn apply_mod(p: vec3f, modifier: SdMod) -> vec3f {
 fn apply_transform(p: vec3f, transform: SdTransform) -> vec3f {
     var new_p = p - transform.pos;
     if !all(transform.rot == vec3f(0.0)) {
-        new_p = OpRotateEuler(new_p, transform.rot);
+        new_p = opRotateEuler(new_p, transform.rot);
     }
     return new_p;
 }

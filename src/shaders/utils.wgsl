@@ -585,7 +585,7 @@ fn opRotateE(p: vec3f, e: vec3f, a: f32) -> vec3f {
     return dot(e, p) * (1. - c) * e - cross(e, p) * sin(a) + c * p;
 }
 
-fn OpRotateEuler(p: vec3f, e: vec3f) -> vec3f {
+fn opRotateEuler(p: vec3f, e: vec3f) -> vec3f {
     var p1 = opRotateX(p, e.x);
     var p2 = opRotateY(p1, e.y);
     return opRotateZ(p2, e.z);
