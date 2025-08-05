@@ -23,7 +23,7 @@ use bevy::{
 use crate::engine::object::SdModUniform;
 
 use super::object::SdObjectUniform;
-use super::op::SdOpUniformInstance;
+use super::op::SdOperatorUniform;
 use super::pipeline::RayMarchEnginePipeline;
 use super::prepass::RayMarchPrepass;
 use super::{RayMarchCamera, SdObjectStorage, SdOpStorage, WORKGROUP_SIZE};
@@ -137,7 +137,7 @@ impl ViewNode for RayMarchEngineNode {
 
         sd_mod_buf.reserve(current_mod_index, device);
 
-        let mut sd_op_buf = BufferVec::<SdOpUniformInstance>::new(BufferUsages::STORAGE);
+        let mut sd_op_buf = BufferVec::<SdOperatorUniform>::new(BufferUsages::STORAGE);
         let res_op = &world.resource::<SdOpStorage>().data;
         sd_op_buf.reserve(res_op.len(), device);
         for &op in res_op.iter() {

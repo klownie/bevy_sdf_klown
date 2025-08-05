@@ -491,7 +491,7 @@ fn opChamferIntersect(d1: f32, d2: f32, r: f32) -> vec2f {
     } else if d == d2 {
         blend = 0.0;
     } else {
-        blend = 0.0;
+        blend = 0.5;
     }
 
     return vec2f(d, blend);

@@ -5,7 +5,7 @@
 #import bevy_pbr::lighting::getDistanceAttenuation
 #import bevy_pbr::mesh_view_types::ClusterableObject
 
-#import bevy_sdf::selectors::{select_shape, select_op};
+#import bevy_sdf::selectors::{select_shape, select_blend};
 #import bevy_sdf::types::{
     // SDF Object-related
     SdObject,
@@ -21,12 +21,12 @@
     SdMod,
 
     // SDF Operators
-    SdOp,
-    SdOpPacked,
-    unpack_sd_op,
-    SdOpInstance,
-    SdOpInstancePacked,
-    unpack_sd_op_instance,
+    SdBlend,
+    SdBlendPacked,
+    unpack_sd_blend,
+    SdOperator,
+    SdOperatorPacked,
+    unpack_sd_operator,
 
     // Distance info
     DistanceInfo,
@@ -57,7 +57,7 @@ struct RayMarchCamera {
 @group(2) @binding(0) var<storage, read> sd_mod: array<SdMod>;
 // PERF: seperate the sd_object buffer into multiple buffers for more performance
 @group(2) @binding(1) var<storage, read> sd_object: array<SdObjectPacked>;
-@group(2) @binding(2) var<storage, read> sd_ops: array<SdOpInstancePacked>;
+@group(2) @binding(2) var<storage, read> sd_ops: array<SdOperatorPacked>;
 
 @group(3) @binding(0) var depth_prepass: texture_storage_2d<r16float, write>;
 @group(3) @binding(1) var normal_prepass: texture_storage_2d<rgba16float, write>;
@@ -81,8 +81,8 @@ fn blend_material(a: SdMaterial, b: SdMaterial, m: f32) -> SdMaterial {
     return SdMaterial(mix(b.color, a.color, m), mix(b.roughness, a.roughness, m), mix(b.fresnel, a.fresnel, m), mix(b.metallic, a.metallic, m), mix(b.sss_strength, a.sss_strength, m), mix(b.sss_radius, a.sss_radius, m));
 }
 
-fn blend_distance_info(a: DistanceInfo, b: DistanceInfo, op: SdOp) -> DistanceInfo {
-    let blend = select_op(op.id, op.data, op.rev, a.dist, b.dist);
+fn blend_distance_info(a: DistanceInfo, b: DistanceInfo, op: SdBlend) -> DistanceInfo {
+    let blend = select_blend(op, a.dist, b.dist);
     let d_blend = blend.x;
     let m = blend.y;
 
@@ -94,7 +94,7 @@ fn map(p: vec3f) -> DistanceInfo {
     let n_ops = arrayLength(&sd_ops);
 
     for (var e = 0u; e < n_ops; e++) {
-        let op = unpack_sd_op_instance(sd_ops[e]);
+        let op = unpack_sd_operator(sd_ops[e]);
         var lhs_info: DistanceInfo;
         var rhs_info: DistanceInfo;
 

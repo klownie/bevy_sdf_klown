@@ -17,7 +17,7 @@ use camera::RayMarchCamera;
 use hierarchy::{InitSkeinSdRelationShip, SdOperatedBy, SdOperatingOn};
 use nodes::RayMarchEngineNode;
 use object::{SdMaterial, SdMod, SdObject, SdShape, SdTransform};
-use op::{SdOp, SdOpInstance};
+use op::{SdBlend, SdOperator};
 use pipeline::RayMarchEnginePipeline;
 use prepass::prepare_ray_march_resources;
 use write_back::MarchWriteBackPlugin;
@@ -95,7 +95,7 @@ impl Plugin for RayMarchEnginePlugin {
         .add_plugins(MarchWriteBackPlugin)
         .register_type::<RayMarchCamera>()
         .register_type::<SdShape>()
-        .register_type::<SdOp>()
+        .register_type::<SdBlend>()
         .register_type::<SdMod>()
         .register_type::<SdModStack>()
         .register_type::<SdIndex>()
@@ -154,7 +154,7 @@ fn update_ray_march_buffer(
         With<SdOperatedBy>,
     >,
     mut sd_object_buffer: ResMut<SdObjectStorage>,
-    sdf_op_query: Query<(&SdOp, &SdIndex, &SdOperatingOn)>,
+    sdf_op_query: Query<(&SdBlend, &SdIndex, &SdOperatingOn)>,
     mut sd_op_buffer: ResMut<SdOpStorage>,
     material_as: Res<Assets<StandardMaterial>>,
 ) {
@@ -217,7 +217,7 @@ fn update_ray_march_buffer(
         let lhs = compute_index(args.1).unwrap_or(0);
         let rhs = compute_index(args.0).unwrap_or(0);
 
-        sd_op_buffer.data.push(SdOpInstance { op, lhs, rhs });
+        sd_op_buffer.data.push(SdOperator { op, lhs, rhs });
     }
     // log::info!("{:#?}", sd_op_buffer.data);
     // log::info!("objects :{:#?}", sd_object_buffer.data);
@@ -232,7 +232,7 @@ pub struct SdObjectStorage {
 #[derive(Resource, Reflect, Debug, Default, Clone, ExtractResource)]
 #[reflect(Resource, Default)]
 pub struct SdOpStorage {
-    pub data: Vec<SdOpInstance>,
+    pub data: Vec<SdOperator>,
 }
 
 #[derive(Reflect, Component, Ord, PartialOrd, PartialEq, Eq, Default, Debug, Clone, Copy)]

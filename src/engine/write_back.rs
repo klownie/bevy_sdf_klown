@@ -82,7 +82,6 @@ impl ViewNode for MarchWriteBackNode {
     type ViewQuery = (
         Read<ViewTarget>,
         Read<RayMarchCamera>,
-        Read<DynamicUniformIndex<RayMarchCamera>>,
         Read<MarchWriteBackPipelineId>,
         Read<RayMarchPrepass>,
     );
@@ -91,7 +90,7 @@ impl ViewNode for MarchWriteBackNode {
         &self,
         _graph: &mut RenderGraphContext,
         render_context: &mut RenderContext,
-        (view_target, _pixelate_settings, settings_index, pipeline_id, raymarch_prepass): QueryItem<
+        (view_target, _pixelate_settings, pipeline_id, raymarch_prepass): QueryItem<
             Self::ViewQuery,
         >,
         world: &World,
@@ -103,22 +102,12 @@ impl ViewNode for MarchWriteBackNode {
             return Ok(());
         };
 
-        // Get the settings uniform binding
-        let settings_uniforms = world.resource::<ComponentUniforms<RayMarchCamera>>();
-        let Some(settings_binding) = settings_uniforms.uniforms().binding() else {
-            return Ok(());
-        };
-
         let post_process = view_target.post_process_write();
 
         let bind_group = render_context.render_device().create_bind_group(
             "march_write_back_pass_bind_group",
             &post_process_pipeline.layout,
-            &BindGroupEntries::sequential((
-                post_process.source,
-                &post_process_pipeline.sampler,
-                settings_binding.clone(),
-            )),
+            &BindGroupEntries::sequential((post_process.source, &post_process_pipeline.sampler)),
         );
 
         let prepass_bind_group = render_context.render_device().create_bind_group(
@@ -141,7 +130,7 @@ impl ViewNode for MarchWriteBackNode {
         });
 
         render_pass.set_render_pipeline(pipeline);
-        render_pass.set_bind_group(0, &bind_group, &[settings_index.index()]);
+        render_pass.set_bind_group(0, &bind_group, &[]);
         render_pass.set_bind_group(1, &prepass_bind_group, &[]);
         render_pass.draw(0..3, 0..1);
 
@@ -167,7 +156,6 @@ impl FromWorld for MarchWriteBackPipeline {
                 (
                     texture_2d(TextureSampleType::Float { filterable: true }),
                     sampler(SamplerBindingType::Filtering),
-                    uniform_buffer::<RayMarchCamera>(true),
                 ),
             ),
         );

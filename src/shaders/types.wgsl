@@ -96,42 +96,42 @@ struct SdTransform {
     rot: vec3f,
 }
 
-struct SdOpInstance {
-    op: SdOp,
+struct SdOperator {
+    op: SdBlend,
     lhs: u32,
     rhs: u32,
 }
 
-struct SdOpInstancePacked {
-    op: SdOpPacked,
+struct SdOperatorPacked {
+    op: SdBlendPacked,
     lhs_rhs: u32,
 }
 
-fn unpack_sd_op_instance(packed: SdOpInstancePacked) -> SdOpInstance {
-    let op = unpack_sd_op(packed.op);
+fn unpack_sd_operator(packed: SdOperatorPacked) -> SdOperator {
+    let op = unpack_sd_blend(packed.op);
 
     let lhs = packed.lhs_rhs & 0x0000FFFFu;              // lower 16 bits
     let rhs = (packed.lhs_rhs >> 16) & 0x0000FFFFu;      // upper 16 bits
 
-    return SdOpInstance(op, lhs, rhs);
+    return SdOperator(op, lhs, rhs);
 }
 
-struct SdOp {
+struct SdBlend {
     id: u32,
     rev: bool,
     data: vec2f,
 }
 
-struct SdOpPacked {
+struct SdBlendPacked {
     id_data: u32
 }
 
-fn unpack_sd_op(packed: SdOpPacked) -> SdOp {
+fn unpack_sd_blend(packed: SdBlendPacked) -> SdBlend {
     let id = packed.id_data & 0x000000FFu;               // bits 0..7
     let rev = (packed.id_data >> 8) & 0x000000FFu;       // bits 8..15
 
     let data_approx = f32((packed.id_data >> 16) & 0x0000FFFFu) / 255.0;
-    return SdOp(id, bool(rev), vec2f(data_approx, 0.0)); // second float unused here
+    return SdBlend(id, bool(rev), vec2f(data_approx, 0.0)); // second float unused here
 }
 
 struct MarchOutput {

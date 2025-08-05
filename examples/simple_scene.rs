@@ -9,7 +9,7 @@ use bevy_sdf_klown::engine::object::{SdMod, SdModStack};
 use bevy_sdf_klown::engine::{
     camera::RayMarchCamera,
     object::{SdMaterial, SdShape},
-    op::SdOp,
+    op::SdBlend,
 };
 use bevy_sdf_klown::{RayMarchingPlugin, op_patients};
 
@@ -44,7 +44,7 @@ fn setup(mut commands: Commands, mut materials: ResMut<Assets<StandardMaterial>>
 
     // Raymarched Sene
     commands.spawn((
-        SdOp::SmoothUnion { k: 1.0 },
+        SdBlend::SmoothUnion { k: 1.0 },
         op_patients![
             (
                 SdShape::BoxFrame {
@@ -55,7 +55,7 @@ fn setup(mut commands: Commands, mut materials: ResMut<Assets<StandardMaterial>>
                 MeshMaterial3d(materials.add(Color::srgb(1., 1., 1.))),
             ),
             (
-                SdOp::ChamferIntersect { radius: 0.2 },
+                SdBlend::ChamferIntersect { radius: 0.2 },
                 op_patients![
                     (
                         SdShape::RoundedCylinder {

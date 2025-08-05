@@ -3,7 +3,7 @@ use bevy::{
     prelude::*,
 };
 
-use super::op::SdOp;
+use super::op::SdBlend;
 
 #[derive(Component)]
 #[relationship(relationship_target = SdOperatingOn)]
@@ -53,7 +53,7 @@ fn detect_op(mut world: DeferredWorld, HookContext { entity, .. }: HookContext) 
         Some(p) => p.parent(),
         None => return,
     };
-    match world.get::<SdOp>(parent) {
+    match world.get::<SdBlend>(parent) {
         Some(_sd_op) => {
             let mut command = world.commands();
             command.entity(entity).insert(SdOperatedBy(parent));
@@ -66,7 +66,7 @@ fn detect_op(mut world: DeferredWorld, HookContext { entity, .. }: HookContext) 
         Some(p) => p.parent(),
         None => return,
     };
-    match world.get::<SdOp>(grand_parent) {
+    match world.get::<SdBlend>(grand_parent) {
         Some(_sd_op) => {
             let mut command = world.commands();
             command.entity(entity).insert(SdOperatedBy(grand_parent));

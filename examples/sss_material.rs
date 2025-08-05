@@ -6,7 +6,7 @@ use bevy_panorbit_camera::{PanOrbitCamera, PanOrbitCameraPlugin};
 use bevy_sdf_klown::engine::{
     camera::RayMarchCamera,
     object::{SdMaterial, SdMod, SdModStack, SdShape},
-    op::SdOp,
+    op::SdBlend,
 };
 use bevy_sdf_klown::{RayMarchingPlugin, op_patients};
 
@@ -29,10 +29,7 @@ fn main() {
 
 fn setup(mut commands: Commands) {
     commands.spawn((
-        SdOp::SmoothUnion {
-            _pad: [0; 3],
-            k: 1.5,
-        },
+        SdBlend::SmoothUnion { k: 1.5 },
         op_patients![
             (
                 SdShape::Box {

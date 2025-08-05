@@ -1,11 +1,28 @@
 #define_import_path bevy_sdf::selectors
 
-#import bevy_sdf::utils::{sdSphere, sdEllipsoid, sdBox, sdRoundBox, sdBoxFrame, sdGyroid, sdTorus, sdCappedTorus, sdLink, sdVerticalCapsule, sdCapsule, sdCylinder, sdVerticalCylinder, sdRoundedCylinder, sdInfiniteCylinder, sdCone, sdConeBound, sdInfiniteCone, sdCappedVerticalCone, sdCappedCone, sdRoundVerticalCone, sdRoundCone, sdSolidAngle, sdPlane, sdOctahedron, sdOctahedronBound, sdPyramid, sdHexPrism, sdTriPrism, udTriangle, sdBunny, sdMandelbulb, sdJuliaQuaternion, sdMengerSponge}
 #import bevy_sdf::utils::{
-        opUnion, opSubtract, opIntersect, opChamferUnion, opChamferSubtract, opChamferIntersect, opSmoothUnion, opSmoothSubtract, opSmoothIntersect,
-        opDisplace, opTwist, opCheapBend, opTranslate, op90RotateX, op90RotateY, op90RotateZ, opRotateX, opRotateY, opRotateZ, opRotateE, opRotateEuler, opScale, opSymmetryX, opSymmetryY, opSymmetryZ, opInfArray, opLimArray, opElongate, opElongateCorrect}
-#import bevy_sdf::types::{SdShape, SdTransform, SdMod, SdModStack}
+    // Signed distance primitives
+    sdBunny, sdBox, sdBoxFrame, sdCappedCone, sdCappedTorus, sdCappedVerticalCone,
+    sdCapsule, sdCone, sdConeBound, sdEllipsoid, sdGyroid, sdHexPrism, sdInfiniteCone,
+    sdInfiniteCylinder, sdJuliaQuaternion, sdLink, sdMandelbulb, sdMengerSponge,
+    sdOctahedron, sdOctahedronBound, sdPlane, sdCylinder, sdPyramid, sdRoundBox, sdRoundCone,
+    sdRoundVerticalCone, sdRoundedCylinder, sdSolidAngle, sdSphere, sdTorus,
+    sdTriPrism, sdVerticalCapsule, sdVerticalCylinder, udTriangle,
+}
 
+#import bevy_sdf::utils::{
+    // Operations
+    opChamferIntersect, opChamferSubtract, opChamferUnion,
+    opCheapBend, opDisplace, opElongate, opElongateCorrect, opInfArray, opIntersect,
+    opLimArray, opRotateE, opRotateEuler, opRotateX, opRotateY, opRotateZ,
+    opScale, opSmoothIntersect, opSmoothSubtract, opSmoothUnion, opSubtract,
+    opSymmetryX, opSymmetryY, opSymmetryZ, opTranslate, opTwist,
+    opUnion, op90RotateX, op90RotateY, op90RotateZ,
+}
+
+#import bevy_sdf::types::{
+    SdBlend, SdMod, SdModStack, SdShape, SdTransform,
+}
 
 fn select_shape(p: vec3f, shape: SdShape, transform: SdTransform, modifiers: SdModStack) -> f32 {
     let shape_data = shape.data * 0.5; //scale it to match blender
@@ -186,13 +203,13 @@ fn apply_transform(p: vec3f, transform: SdTransform) -> vec3f {
     return new_p;
 }
 
-fn select_op(op: u32, op_data: vec2f, rev_op: bool, d1: f32, d2: f32) -> vec2f {
-    switch op {
+fn select_blend(op: SdBlend, d1: f32, d2: f32) -> vec2f {
+    switch op.id {
         case 0u, default {
             return opUnion(d1, d2);
         }
         case 1u { // Subtract
-            if rev_op {
+            if op.rev {
                 return opSubtract(d1, d2);
             } else {
                 return opSubtract(d2, d1);
@@ -202,36 +219,36 @@ fn select_op(op: u32, op_data: vec2f, rev_op: bool, d1: f32, d2: f32) -> vec2f {
             return opIntersect(d1, d2);
         }
         case 3u {
-            return opChamferUnion(d1, d2, op_data.x);
+            return opChamferUnion(d1, d2, op.data.x);
         }
         case 4u { // ChamferSubtract
-            if rev_op {
-                return opChamferSubtract(d1, d2, op_data.x);
+            if op.rev {
+                return opChamferSubtract(d1, d2, op.data.x);
             } else {
-                return opChamferSubtract(d2, d1, op_data.x);
+                return opChamferSubtract(d2, d1, op.data.x);
             };
         }
         case 5u {
-            return opChamferIntersect(d1, d2, op_data.x);
+            return opChamferIntersect(d1, d2, op.data.x);
         }
         case 6u {
-            return opSmoothUnion(d1, d2, op_data.x);
+            return opSmoothUnion(d1, d2, op.data.x);
         }
         case 7u { // SmoothSubtract
-            if rev_op {
-                return opSmoothSubtract(d1, d2, op_data.x);
+            if op.rev {
+                return opSmoothSubtract(d1, d2, op.data.x);
             } else {
-                return opSmoothSubtract(d2, d1, op_data.x);
+                return opSmoothSubtract(d2, d1, op.data.x);
             };
         }
         case 8u {
-            return opSmoothIntersect(d1, d2, op_data.x);
+            return opSmoothIntersect(d1, d2, op.data.x);
         }
         case 9u { // Displace
-            if rev_op {
-                return opDisplace(d1, d2, op_data.x);
+            if op.rev {
+                return opDisplace(d1, d2, op.data.x);
             } else {
-                return opDisplace(d2, d1, op_data.x);
+                return opDisplace(d2, d1, op.data.x);
             };
         }
     }

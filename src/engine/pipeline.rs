@@ -18,7 +18,7 @@ use bevy::{
 use crate::engine::object::SdModUniform;
 
 use super::{
-    RAY_MARCH_MAIN_PASS_HANDLE, RayMarchCamera, object::SdObjectUniform, op::SdOpUniformInstance,
+    RAY_MARCH_MAIN_PASS_HANDLE, RayMarchCamera, object::SdObjectUniform, op::SdOperatorUniform,
 };
 
 #[derive(Resource)]
@@ -75,7 +75,7 @@ impl FromWorld for RayMarchEnginePipeline {
                 (
                     storage_buffer_read_only::<SdModUniform>(false),
                     storage_buffer_read_only::<SdObjectUniform>(false),
-                    storage_buffer_read_only::<SdOpUniformInstance>(false),
+                    storage_buffer_read_only::<SdOperatorUniform>(false),
                 ),
             ),
         );

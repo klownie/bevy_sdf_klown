@@ -1,36 +1,34 @@
 use crate::engine::SdIndex;
-use bevy::platform::collections::hash_set::Union;
 use bevy::prelude::*;
 use bevy::render::render_resource::ShaderType;
-use std::mem::transmute;
 
 #[derive(Reflect, Debug, Clone, Copy)]
-pub struct SdOpInstance {
-    pub op: SdOp,
+pub struct SdOperator {
+    pub op: SdBlend,
     pub lhs: u16,
     pub rhs: u16,
 }
 
 #[derive(ShaderType, Clone, Copy)]
-pub struct SdOpUniformInstance {
-    pub op: SdOpUniform,
+pub struct SdOperatorUniform {
+    pub op: SdBlendUniform,
     pub lhs_rhs: u32,
 }
 
-impl SdOpInstance {
-    pub fn uniform(self) -> SdOpUniformInstance {
+impl SdOperator {
+    pub fn uniform(self) -> SdOperatorUniform {
         // Pack lhs (lower 16 bits) and rhs (upper 16 bits) into u32
         let lhs_rhs = (self.lhs as u32) | ((self.rhs as u32) << 16);
 
         // Pack the operation into a u32
         let op = self.op.uniform();
 
-        SdOpUniformInstance { op, lhs_rhs }
+        SdOperatorUniform { op, lhs_rhs }
     }
 }
 
 #[derive(ShaderType, Clone, Copy)]
-pub struct SdOpUniform {
+pub struct SdBlendUniform {
     pub id_data: u32,
 }
 
@@ -38,7 +36,7 @@ pub struct SdOpUniform {
 #[derive(Reflect, Component, Debug, Clone, Copy, Default)]
 #[require(Name::new("SdOp"), SdIndex)]
 #[reflect(Component)]
-pub enum SdOp {
+pub enum SdBlend {
     #[default]
     Union,
     Subtract {
@@ -71,9 +69,9 @@ pub enum SdOp {
     },
 }
 
-impl SdOp {
-    pub fn uniform(self) -> SdOpUniform {
-        use SdOp::*;
+impl SdBlend {
+    pub fn uniform(self) -> SdBlendUniform {
+        use SdBlend::*;
         let (disc, rev, extra): (u8, u8, u16) = match self {
             Union => (0, 0, 0),
             Subtract { rev } => (1, rev as u8, 0),
@@ -89,6 +87,6 @@ impl SdOp {
 
         let id_data = (disc as u32) | ((rev as u32) << 8) | ((extra as u32) << 16);
 
-        SdOpUniform { id_data }
+        SdBlendUniform { id_data }
     }
 }
