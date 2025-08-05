@@ -186,7 +186,7 @@ fn apply_transform(p: vec3f, transform: SdTransform) -> vec3f {
     return new_p;
 }
 
-fn select_op(op: u32, op_data: f32, rev_op: bool, d1: f32, d2: f32) -> vec2f {
+fn select_op(op: u32, op_data: vec2f, rev_op: bool, d1: f32, d2: f32) -> vec2f {
     switch op {
         case 0u, default {
             return opUnion(d1, d2);
@@ -202,36 +202,36 @@ fn select_op(op: u32, op_data: f32, rev_op: bool, d1: f32, d2: f32) -> vec2f {
             return opIntersect(d1, d2);
         }
         case 3u {
-            return opChamferUnion(d1, d2, op_data);
+            return opChamferUnion(d1, d2, op_data.x);
         }
         case 4u { // ChamferSubtract
             if rev_op {
-                return opChamferSubtract(d1, d2, op_data);
+                return opChamferSubtract(d1, d2, op_data.x);
             } else {
-                return opChamferSubtract(d2, d1, op_data);
+                return opChamferSubtract(d2, d1, op_data.x);
             };
         }
         case 5u {
-            return opChamferIntersect(d1, d2, op_data);
+            return opChamferIntersect(d1, d2, op_data.x);
         }
         case 6u {
-            return opSmoothUnion(d1, d2, op_data);
+            return opSmoothUnion(d1, d2, op_data.x);
         }
         case 7u { // SmoothSubtract
             if rev_op {
-                return opSmoothSubtract(d1, d2, op_data);
+                return opSmoothSubtract(d1, d2, op_data.x);
             } else {
-                return opSmoothSubtract(d2, d1, op_data);
+                return opSmoothSubtract(d2, d1, op_data.x);
             };
         }
         case 8u {
-            return opSmoothIntersect(d1, d2, op_data);
+            return opSmoothIntersect(d1, d2, op_data.x);
         }
         case 9u { // Displace
             if rev_op {
-                return opDisplace(d1, d2, op_data);
+                return opDisplace(d1, d2, op_data.x);
             } else {
-                return opDisplace(d2, d1, op_data);
+                return opDisplace(d2, d1, op_data.x);
             };
         }
     }

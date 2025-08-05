@@ -109,26 +109,29 @@ struct SdOpInstancePacked {
 
 fn unpack_sd_op_instance(packed: SdOpInstancePacked) -> SdOpInstance {
     let op = unpack_sd_op(packed.op);
-    let lhs = (packed.lhs_rhs & 0x0000FFFFu);       // lower 16 bits
-    let rhs = (packed.lhs_rhs >> 16) & 0x0000FFFFu; // upper 16 bits
+
+    let lhs = packed.lhs_rhs & 0x0000FFFFu;              // lower 16 bits
+    let rhs = (packed.lhs_rhs >> 16) & 0x0000FFFFu;      // upper 16 bits
+
     return SdOpInstance(op, lhs, rhs);
 }
 
 struct SdOp {
     id: u32,
     rev: bool,
-    data: f32,
+    data: vec2f,
 }
 
 struct SdOpPacked {
-    id_rev: u32,
-    data: f32,
+    id_data: u32
 }
 
 fn unpack_sd_op(packed: SdOpPacked) -> SdOp {
-    let id = (packed.id_rev & 0x000000FFu);         // lowest 8 bits
-    let rev = (packed.id_rev >> 8) & 0x000000FFu;   // next 8 bits
-    return SdOp(id, bool(rev), packed.data);
+    let id = packed.id_data & 0x000000FFu;               // bits 0..7
+    let rev = (packed.id_data >> 8) & 0x000000FFu;       // bits 8..15
+
+    let data_approx = f32((packed.id_data >> 16) & 0x0000FFFFu) / 255.0;
+    return SdOp(id, bool(rev), vec2f(data_approx, 0.0)); // second float unused here
 }
 
 struct MarchOutput {

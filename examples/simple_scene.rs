@@ -44,10 +44,7 @@ fn setup(mut commands: Commands, mut materials: ResMut<Assets<StandardMaterial>>
 
     // Raymarched Sene
     commands.spawn((
-        SdOp::SmoothUnion {
-            k: 1.0,
-            _pad: [0; 3],
-        },
+        SdOp::SmoothUnion { k: 1.0 },
         op_patients![
             (
                 SdShape::BoxFrame {
@@ -58,10 +55,7 @@ fn setup(mut commands: Commands, mut materials: ResMut<Assets<StandardMaterial>>
                 MeshMaterial3d(materials.add(Color::srgb(1., 1., 1.))),
             ),
             (
-                SdOp::ChamferIntersect {
-                    _pad: [0; 3],
-                    radius: 0.2
-                },
+                SdOp::ChamferIntersect { radius: 0.2 },
                 op_patients![
                     (
                         SdShape::RoundedCylinder {
