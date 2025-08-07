@@ -137,7 +137,7 @@ fn select_shape(p: vec3f, shape: SdShape, transform: SdTransform, modifiers: SdM
     }
 }
 
-@group(2) @binding(0) var<storage, read> sd_mod: array<SdMod>;
+@group(2) @binding(2) var<storage, read> sd_mod: array<SdMod>;
 
 fn apply_mod(p: vec3f, modifier: SdMod) -> vec3f {
     switch modifier.id {

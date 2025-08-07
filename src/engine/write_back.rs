@@ -6,12 +6,11 @@ use bevy::{
     prelude::*,
     render::{
         Render, RenderApp, RenderSet,
-        extract_component::{ComponentUniforms, DynamicUniformIndex},
         render_graph::{
             NodeRunError, RenderGraphApp, RenderGraphContext, ViewNode, ViewNodeRunner,
         },
         render_resource::{
-            binding_types::{sampler, texture_2d, uniform_buffer},
+            binding_types::{sampler, texture_2d},
             *,
         },
         renderer::{RenderContext, RenderDevice},

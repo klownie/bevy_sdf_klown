@@ -54,10 +54,11 @@ struct RayMarchCamera {
 }
 @group(1) @binding(1) var<uniform> settings: RayMarchCamera;
 
-@group(2) @binding(0) var<storage, read> sd_mod: array<SdMod>;
 // PERF: seperate the sd_object buffer into multiple buffers for more performance
-@group(2) @binding(1) var<storage, read> sd_object: array<SdObjectPacked>;
-@group(2) @binding(2) var<storage, read> sd_ops: array<SdOperatorPacked>;
+@group(2) @binding(0) var<storage, read> sd_object: array<SdObjectPacked>;
+@group(2) @binding(1) var<storage, read> sd_ops: array<SdOperatorPacked>;
+@group(2) @binding(2) var<storage, read> sd_mod: array<SdMod>;
+//@group(2) @binding(2) var<storage, read> sd_data: array<f32>;
 
 @group(3) @binding(0) var depth_prepass: texture_storage_2d<r16float, write>;
 @group(3) @binding(1) var normal_prepass: texture_storage_2d<rgba16float, write>;
@@ -69,7 +70,7 @@ struct RayMarchCamera {
 @group(3) @binding(7) var scaled_mask_prepass: texture_storage_2d<r16float, read_write>;
 
 // PERF: Make op_resut recyce te sapce in te array to get a significant perforamce boost when dealing with large amounts of OPS
-const MAX_OPS: u32 = 6;
+const MAX_OPS: u32 = 8;
 var<private> op_results: array<DistanceInfoPacked, MAX_OPS>;
 
 fn shape_to_dist(obj: SdObject, p: vec3f) -> DistanceInfo {

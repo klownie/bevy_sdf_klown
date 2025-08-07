@@ -114,51 +114,51 @@ impl ViewNode for RayMarchEngineNode {
         let res_obj = &world.resource::<SdObjectStorage>().data;
 
         let mut sd_mod_buf = BufferVec::<SdModUniform>::new(BufferUsages::STORAGE);
+        let mut sd_mod_data_buf = BufferVec::<f32>::new(BufferUsages::STORAGE);
         let mut sd_object_buf = BufferVec::<SdObjectUniform>::new(BufferUsages::STORAGE);
         sd_object_buf.reserve(res_obj.len(), device);
 
         let mut current_mod_index = 0;
 
-        for obj in res_obj.iter() {
+        res_obj.iter().for_each(|obj| {
             // Push modifiers and count them
             let start_index = current_mod_index;
-            for &modifier in obj.modifiers.modifiers.iter().rev() {
-                sd_mod_buf.push(modifier.uniform());
-                current_mod_index += 1;
+            for &modifier in obj.modifier_stack.modifiers.iter().rev() {
+                current_mod_index = sd_mod_buf.push(modifier.uniform()) + 1;
             }
 
             sd_object_buf.push(SdObjectUniform {
                 shape: obj.shape.clone().uniform(),
                 material: obj.material.uniform(),
-                modifiers: obj.modifiers.clone().uniform(start_index),
+                modifiers: obj.modifier_stack.clone().uniform(start_index),
                 transform: obj.transform.uniform(),
             });
-        }
+        });
 
         sd_mod_buf.reserve(current_mod_index, device);
 
         let mut sd_op_buf = BufferVec::<SdOperatorUniform>::new(BufferUsages::STORAGE);
         let res_op = &world.resource::<SdOpStorage>().data;
         sd_op_buf.reserve(res_op.len(), device);
-        for &op in res_op.iter() {
+        res_op.iter().for_each(|&op| {
             sd_op_buf.push(op.uniform());
-        }
+        });
 
         sd_mod_buf
             .is_empty()
             .then(|| sd_mod_buf.push(SdModUniform::default()));
 
-        sd_mod_buf.write_buffer(device, queue);
         sd_object_buf.write_buffer(device, queue);
         sd_op_buf.write_buffer(device, queue);
+        sd_mod_buf.write_buffer(device, queue);
 
         let storage_bind_group = device.create_bind_group(
             "marcher_storage_bind_group",
             &ray_march_pipeline.storage_layout,
             &BindGroupEntries::sequential((
-                sd_mod_buf.binding().unwrap(),
                 sd_object_buf.binding().unwrap(),
                 sd_op_buf.binding().unwrap(),
+                sd_mod_buf.binding().unwrap(),
             )),
         );
 

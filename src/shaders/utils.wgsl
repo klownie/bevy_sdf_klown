@@ -599,7 +599,7 @@ fn opScale(p: vec3f, s: f32) -> vec3f {
 
 // Free transformation - exact
 //fn opTransform(p: vec3f, transform: mat4x4<f32>) -> vec3f {
-  //let q = inverse(transform) * vec4f(p, 1.);
+//    let q = inverse(transform) * vec4f(p, 1.);
 //}
 //let d = sdfPrimitive3d(opTransform(p, transform)) * determinant(transform);
 //let d = sdfPrimitive3d(opScale(opRotateE(opTranslate(p, t), e, a), s)) * s;

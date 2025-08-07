@@ -7,7 +7,8 @@ use bevy::{
             ComputePipelineDescriptor, PipelineCache, ShaderStages, StorageTextureAccess,
             TextureFormat,
             binding_types::{
-                storage_buffer_read_only, texture_depth_2d, texture_storage_2d, uniform_buffer,
+                storage_buffer_read_only, storage_buffer_read_only_sized, texture_depth_2d,
+                texture_storage_2d, uniform_buffer,
             },
         },
         renderer::RenderDevice,
@@ -15,11 +16,7 @@ use bevy::{
     },
 };
 
-use crate::engine::object::SdModUniform;
-
-use super::{
-    RAY_MARCH_MAIN_PASS_HANDLE, RayMarchCamera, object::SdObjectUniform, op::SdOperatorUniform,
-};
+use super::{RAY_MARCH_MAIN_PASS_HANDLE, RayMarchCamera};
 
 #[derive(Resource)]
 pub struct RayMarchEnginePipeline {
@@ -73,9 +70,10 @@ impl FromWorld for RayMarchEnginePipeline {
             &BindGroupLayoutEntries::sequential(
                 ShaderStages::COMPUTE,
                 (
-                    storage_buffer_read_only::<SdModUniform>(false),
-                    storage_buffer_read_only::<SdObjectUniform>(false),
-                    storage_buffer_read_only::<SdOperatorUniform>(false),
+                    storage_buffer_read_only_sized(false, None),
+                    storage_buffer_read_only_sized(false, None),
+                    storage_buffer_read_only_sized(false, None),
+                    // storage_buffer_read_only_sized(false, None),
                 ),
             ),
         );

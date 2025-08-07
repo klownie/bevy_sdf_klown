@@ -15,7 +15,7 @@ pub struct SdObjectUniform {
 pub struct SdObject {
     pub shape: SdShape,
     pub material: SdMaterial,
-    pub modifiers: SdModStack,
+    pub modifier_stack: SdModStack,
     pub transform: SdTransform,
 }
 
@@ -206,7 +206,7 @@ pub enum SdMod {
 
 impl Default for SdMod {
     fn default() -> Self {
-        Self::Twist { k: 0.0 }
+        Self::Translate { t: Vec3::ZERO }
     }
 }
 
