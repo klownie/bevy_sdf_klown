@@ -1,16 +1,10 @@
 use bevy::ecs::query::QueryItem;
-use bevy::pbr::{GlobalClusterableObjectMeta, LightMeta};
 use bevy::prelude::*;
 use bevy::render::camera::ExtractedCamera;
-use bevy::render::extract_component::ComponentUniforms;
 use bevy::render::render_graph::NodeRunError;
-use bevy::render::render_resource::{
-    BindGroupEntries, BufferUsages, BufferVec, ComputePassDescriptor, PipelineCache,
-};
-use bevy::render::renderer::{RenderContext, RenderQueue};
-use bevy::render::view::ViewUniforms;
+use bevy::render::render_resource::{BindGroup, ComputePassDescriptor, PipelineCache};
+use bevy::render::renderer::RenderContext;
 use bevy::{
-    core_pipeline::prepass::ViewPrepassTextures,
     ecs::system::lifetimeless::Read,
     pbr::ViewLightsUniformOffset,
     render::{
@@ -20,13 +14,16 @@ use bevy::{
     },
 };
 
-use crate::engine::object::SdModUniform;
-
-use super::object::SdObjectUniform;
-use super::op::SdOperatorUniform;
 use super::pipeline::RayMarchEnginePipeline;
-use super::prepass::RayMarchPrepass;
-use super::{RayMarchCamera, SdObjectStorage, SdOpStorage, WORKGROUP_SIZE};
+use super::{RayMarchCamera, WORKGROUP_SIZE};
+
+#[derive(Resource)]
+pub struct RayMarchEngineBindGroup {
+    pub common_bind_group: BindGroup,
+    pub texture_bind_group: BindGroup,
+    pub storage_bind_group: BindGroup,
+    pub prepass_bind_group: BindGroup,
+}
 
 #[derive(Default)]
 pub struct RayMarchEngineNode;
@@ -37,10 +34,8 @@ impl ViewNode for RayMarchEngineNode {
         Read<ExtractedCamera>,
         Read<RayMarchCamera>,
         Read<DynamicUniformIndex<RayMarchCamera>>,
-        Read<ViewPrepassTextures>,
         Read<ViewUniformOffset>,
         Read<ViewLightsUniformOffset>,
-        Read<RayMarchPrepass>,
     );
 
     fn run(
@@ -52,17 +47,14 @@ impl ViewNode for RayMarchEngineNode {
             camera,
             _ray_march_settings,
             settings_index,
-            view_prepass,
             view_uniform_offset,
             view_lights_uniform_offset,
-            raymarch_prepass,
         ): QueryItem<Self::ViewQuery>,
         world: &World,
     ) -> Result<(), NodeRunError> {
-        let device = render_context.render_device();
-        let queue = world.resource::<RenderQueue>();
         let pipeline_cache = world.resource::<PipelineCache>();
         let ray_march_pipeline = world.resource::<RayMarchEnginePipeline>();
+        let bind_group = world.resource::<RayMarchEngineBindGroup>();
 
         let (Some(march_pipeline), Some(scale_pipeline)) = (
             pipeline_cache.get_compute_pipeline(ray_march_pipeline.march_pipeline),
@@ -70,112 +62,6 @@ impl ViewNode for RayMarchEngineNode {
         ) else {
             return Ok(());
         };
-
-        let settings_uniforms = world.resource::<ComponentUniforms<RayMarchCamera>>();
-        let view_uniforms = world.resource::<ViewUniforms>();
-        let light_meta = world.resource::<LightMeta>();
-        let clusterables = world.resource::<GlobalClusterableObjectMeta>();
-
-        let (
-            Some(settings_binding),
-            Some(view_binding),
-            Some(light_binding),
-            Some(cluster_binding),
-        ) = (
-            settings_uniforms.uniforms().binding(),
-            view_uniforms.uniforms.binding(),
-            light_meta.view_gpu_lights.binding(),
-            clusterables.gpu_clusterable_objects.binding(),
-        )
-        else {
-            return Ok(());
-        };
-
-        let texture_bind_group = device.create_bind_group(
-            "ray_march_texture_bind_group",
-            &ray_march_pipeline.texture_layout,
-            &BindGroupEntries::sequential((
-                // view_target.get_unsampled_color_attachment().view,
-                view_prepass.depth_view().unwrap(),
-                settings_binding.clone(),
-            )),
-        );
-
-        let common_bind_group = device.create_bind_group(
-            "ray_march_view_bind_group",
-            &ray_march_pipeline.common_layout,
-            &BindGroupEntries::with_indices((
-                (0, view_binding.clone()),
-                (1, light_binding.clone()),
-                (8, cluster_binding.clone()),
-            )),
-        );
-
-        let res_obj = &world.resource::<SdObjectStorage>().data;
-
-        let mut sd_mod_buf = BufferVec::<SdModUniform>::new(BufferUsages::STORAGE);
-        let mut sd_mod_data_buf = BufferVec::<f32>::new(BufferUsages::STORAGE);
-        let mut sd_object_buf = BufferVec::<SdObjectUniform>::new(BufferUsages::STORAGE);
-        sd_object_buf.reserve(res_obj.len(), device);
-
-        let mut current_mod_index = 0;
-
-        res_obj.iter().for_each(|obj| {
-            // Push modifiers and count them
-            let start_index = current_mod_index;
-            for &modifier in obj.modifier_stack.modifiers.iter().rev() {
-                current_mod_index = sd_mod_buf.push(modifier.uniform()) + 1;
-            }
-
-            sd_object_buf.push(SdObjectUniform {
-                shape: obj.shape.clone().uniform(),
-                material: obj.material.uniform(),
-                modifiers: obj.modifier_stack.clone().uniform(start_index),
-                transform: obj.transform.uniform(),
-            });
-        });
-
-        sd_mod_buf.reserve(current_mod_index, device);
-
-        let mut sd_op_buf = BufferVec::<SdOperatorUniform>::new(BufferUsages::STORAGE);
-        let res_op = &world.resource::<SdOpStorage>().data;
-        sd_op_buf.reserve(res_op.len(), device);
-        res_op.iter().for_each(|&op| {
-            sd_op_buf.push(op.uniform());
-        });
-
-        sd_mod_buf
-            .is_empty()
-            .then(|| sd_mod_buf.push(SdModUniform::default()));
-
-        sd_object_buf.write_buffer(device, queue);
-        sd_op_buf.write_buffer(device, queue);
-        sd_mod_buf.write_buffer(device, queue);
-
-        let storage_bind_group = device.create_bind_group(
-            "marcher_storage_bind_group",
-            &ray_march_pipeline.storage_layout,
-            &BindGroupEntries::sequential((
-                sd_object_buf.binding().unwrap(),
-                sd_op_buf.binding().unwrap(),
-                sd_mod_buf.binding().unwrap(),
-            )),
-        );
-
-        let prepass_bind_group = device.create_bind_group(
-            "marcher_prepass_bind_group",
-            &ray_march_pipeline.prepass_layout,
-            &BindGroupEntries::sequential((
-                &raymarch_prepass.depth,
-                &raymarch_prepass.normal,
-                &raymarch_prepass.material,
-                &raymarch_prepass.mask,
-                &raymarch_prepass.scaled_depth,
-                &raymarch_prepass.scaled_normal,
-                &raymarch_prepass.scaled_material,
-                &raymarch_prepass.scaled_mask,
-            )),
-        );
 
         let Some(viewport) = camera.physical_viewport_size else {
             return Ok(());
@@ -191,15 +77,15 @@ impl ViewNode for RayMarchEngineNode {
 
         pass.set_bind_group(
             0,
-            &common_bind_group,
+            &bind_group.common_bind_group,
             &[
                 view_uniform_offset.offset,
                 view_lights_uniform_offset.offset,
             ],
         );
-        pass.set_bind_group(1, &texture_bind_group, &[settings_index.index()]);
-        pass.set_bind_group(2, &storage_bind_group, &[]);
-        pass.set_bind_group(3, &prepass_bind_group, &[]);
+        pass.set_bind_group(1, &bind_group.texture_bind_group, &[settings_index.index()]);
+        pass.set_bind_group(2, &bind_group.storage_bind_group, &[]);
+        pass.set_bind_group(3, &bind_group.prepass_bind_group, &[]);
 
         pass.set_pipeline(march_pipeline);
         pass.dispatch_workgroups(

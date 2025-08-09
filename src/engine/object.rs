@@ -7,7 +7,7 @@ use bevy::render::render_resource::ShaderType;
 pub struct SdObjectUniform {
     pub shape: SdShapeUniform,
     pub material: SdMaterialUniform,
-    pub modifiers: SdModStackUniform,
+    pub modifier_stack: SdModStackUniform,
     pub transform: SdTransformUniform,
 }
 
@@ -171,6 +171,7 @@ pub enum SdShape {
 }
 
 impl SdShape {
+    #[inline]
     pub fn uniform(self) -> SdShapeUniform {
         unsafe { transmute(self) }
     }
@@ -211,6 +212,7 @@ impl Default for SdMod {
 }
 
 impl SdMod {
+    #[inline]
     pub fn uniform(self) -> SdModUniform {
         let bytes: [u32; 5] = unsafe { transmute(self) };
         let pack: Vec4 = unsafe { transmute([bytes[1], bytes[2], bytes[3], bytes[4]]) };
@@ -233,6 +235,7 @@ pub struct SdModStackUniform {
 }
 
 impl SdModStack {
+    #[inline]
     pub fn uniform(self, start_index: usize) -> SdModStackUniform {
         let start = start_index as u16 as u32;
         let len = self.modifiers.len() as u16 as u32;
@@ -275,6 +278,7 @@ impl Default for SdMaterial {
 }
 
 impl SdMaterial {
+    #[inline]
     pub fn uniform(self) -> SdMaterialUniform {
         SdMaterialUniform {
             color: u32::from_ne_bytes(LinearRgba::from_vec4(self.color).to_u8_array()),

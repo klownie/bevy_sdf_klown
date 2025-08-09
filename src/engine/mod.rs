@@ -1,4 +1,5 @@
 use bevy::asset::{load_internal_asset, weak_handle};
+use bevy::core_pipeline::core_3d::prepare_prepass_textures;
 use bevy::ecs::component::HookContext;
 use bevy::ecs::world::DeferredWorld;
 use bevy::prelude::*;
@@ -19,10 +20,11 @@ use nodes::RayMarchEngineNode;
 use object::{SdMaterial, SdMod, SdObject, SdShape, SdTransform};
 use op::{SdBlend, SdOperator};
 use pipeline::RayMarchEnginePipeline;
-use prepass::prepare_ray_march_resources;
 use write_back::MarchWriteBackPlugin;
 
+use crate::engine::nodes::RayMarchEngineBindGroup;
 use crate::engine::object::SdModStack;
+use crate::engine::prepare::prepare_ray_march_bind_group;
 
 mod nodes;
 mod pipeline;
@@ -33,6 +35,7 @@ pub mod camera;
 pub mod hierarchy;
 pub mod object;
 pub mod op;
+pub mod prepare;
 pub mod prepass;
 
 const RAY_MARCH_MAIN_PASS_HANDLE: Handle<Shader> =
@@ -89,13 +92,15 @@ impl Plugin for RayMarchEnginePlugin {
             ExtractComponentPlugin::<RayMarchCamera>::default(),
             UniformComponentPlugin::<RayMarchCamera>::default(),
             ExtractResourcePlugin::<SdObjectStorage>::default(),
-            ExtractResourcePlugin::<SdOpStorage>::default(),
+            ExtractResourcePlugin::<SdOperatorStorage>::default(),
         ))
         .add_systems(
             PostUpdate,
-            update_ray_march_buffer
-                .run_if(ray_march_buffer_needs_update)
-                .in_set(RayMarchSet),
+            (update_ray_march_buffer
+                .run_if(
+                    ray_march_operator_buffer_needs_update.or(ray_march_object_buffer_needs_update),
+                )
+                .in_set(RayMarchSet),),
         )
         .add_plugins(MarchWriteBackPlugin)
         .register_type::<RayMarchCamera>()
@@ -107,7 +112,7 @@ impl Plugin for RayMarchEnginePlugin {
         .register_type::<InitSkeinSdRelationShip>()
         .register_type::<SdMaterial>()
         .init_resource::<SdObjectStorage>()
-        .init_resource::<SdOpStorage>();
+        .init_resource::<SdOperatorStorage>();
 
         let Some(render_app) = app.get_sub_app_mut(RenderApp) else {
             return;
@@ -116,7 +121,16 @@ impl Plugin for RayMarchEnginePlugin {
         render_app
             .add_systems(
                 Render,
-                prepare_ray_march_resources.in_set(RenderSet::PrepareResources),
+                (
+                    prepare_prepass_textures.in_set(RenderSet::PrepareResources),
+                    prepare_ray_march_bind_group
+                        .in_set(RenderSet::PrepareBindGroups)
+                        .run_if(
+                            not(resource_exists::<RayMarchEngineBindGroup>)
+                                .or(resource_changed::<SdObjectStorage>)
+                                .or(resource_changed::<SdOperatorStorage>),
+                        ),
+                ),
             )
             .add_render_graph_node::<ViewNodeRunner<RayMarchEngineNode>>(
                 Core3d,
@@ -160,7 +174,7 @@ fn update_ray_march_buffer(
     >,
     mut sd_object_buffer: ResMut<SdObjectStorage>,
     sd_op_query: Query<(&SdBlend, &SdIndex, &SdOperatingOn)>,
-    mut sd_op_buffer: ResMut<SdOpStorage>,
+    mut sd_op_buffer: ResMut<SdOperatorStorage>,
     material_as: Res<Assets<StandardMaterial>>,
 ) {
     let nb_shapes = sdf_object_query.iter().len() as u16;
@@ -170,7 +184,7 @@ fn update_ray_march_buffer(
     sd_object_buffer.data = Vec::with_capacity(nb_shapes as usize);
     sd_op_buffer.data = Vec::with_capacity(sd_op_query.iter().len());
 
-    let mut push_shape = |entity: Entity| -> Option<u16> {
+    let mut push_object = |entity: Entity| -> Option<u16> {
         let (&shape, modifiers, transform, some_mat_handle, some_sd_mat) =
             sdf_object_query.get(entity).ok()?;
 
@@ -214,7 +228,7 @@ fn update_ray_march_buffer(
                 current_op_index += 1;
                 i
             } else {
-                push_shape(patient)
+                push_object(patient)
             }
         };
 
@@ -228,7 +242,73 @@ fn update_ray_march_buffer(
     // log::info!("objects :{:#?}", sd_object_buffer.data);
 }
 
-fn ray_march_buffer_needs_update(
+#[warn(dead_code)]
+fn update_object_buffer(
+    sdf_object_query: Query<
+        (
+            Entity,
+            &SdShape,
+            &SdModStack,
+            &GlobalTransform,
+            Option<&MeshMaterial3d<StandardMaterial>>,
+            Option<&SdMaterial>,
+        ),
+        With<SdOperatedBy>,
+    >,
+    mut sd_object_buffer: ResMut<SdObjectStorage>,
+    material_as: Res<Assets<StandardMaterial>>,
+) {
+    let nb_shapes = sdf_object_query.iter().len() as u16;
+    sd_object_buffer.data = Vec::with_capacity(nb_shapes as usize);
+
+    for (entity, &shape, modifiers, transform, some_mat_handle, some_sd_mat) in sdf_object_query {
+        let material = match (some_mat_handle, some_sd_mat) {
+            (Some(mat_handle), _) => {
+                let std_material = material_as.get(mat_handle.id()).unwrap_or_else(|| {
+                    panic!("Material handle found but not available in Assets<StandardMaterial>")
+                });
+                SdMaterial::from(std_material.clone())
+            }
+            (None, Some(sd_mat)) => *sd_mat,
+            (None, None) => {
+                panic!(
+                    "Entity {:?} is missing both MeshMaterial3d and SdMaterial",
+                    entity
+                );
+            }
+        };
+
+        let transform = SdTransform {
+            pos: transform.translation(),
+            rot: Vec3::from(transform.rotation().to_euler(EulerRot::XYZ)),
+        };
+
+        sd_object_buffer.data.push(SdObject {
+            shape,
+            material,
+            modifier_stack: modifiers.clone(),
+            transform,
+        });
+    }
+
+    // log::info!("objects :{:#?}", sd_object_buffer.data);
+}
+
+fn ray_march_operator_buffer_needs_update(
+    check_op_query: Query<
+        (),
+        (
+            With<SdBlend>,
+            With<SdIndex>,
+            With<SdOperatingOn>,
+            Or<(Changed<SdBlend>, Changed<SdIndex>, Changed<SdOperatingOn>)>,
+        ),
+    >,
+) -> bool {
+    !check_op_query.is_empty()
+}
+
+fn ray_march_object_buffer_needs_update(
     check_object_query: Query<
         (),
         (
@@ -245,28 +325,17 @@ fn ray_march_buffer_needs_update(
             )>,
         ),
     >,
-    check_op_query: Query<
-        (),
-        (
-            With<SdBlend>,
-            With<SdIndex>,
-            With<SdOperatingOn>,
-            Or<(Changed<SdBlend>, Changed<SdIndex>, Changed<SdOperatingOn>)>,
-        ),
-    >,
 ) -> bool {
-    !check_object_query.is_empty() | !check_op_query.is_empty()
+    !check_object_query.is_empty()
 }
 
-#[derive(Resource, Reflect, Default, Clone, ExtractResource)]
-#[reflect(Resource, Default)]
+#[derive(Resource, Default, Debug, Clone, ExtractResource)]
 pub struct SdObjectStorage {
     pub data: Vec<SdObject>,
 }
 
-#[derive(Resource, Reflect, Debug, Default, Clone, ExtractResource)]
-#[reflect(Resource, Default)]
-pub struct SdOpStorage {
+#[derive(Resource, Default, Debug, Clone, ExtractResource)]
+pub struct SdOperatorStorage {
     pub data: Vec<SdOperator>,
 }
 
