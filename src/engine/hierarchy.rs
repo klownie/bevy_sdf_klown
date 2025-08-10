@@ -1,15 +1,10 @@
-use bevy::{
-    ecs::{component::HookContext, world::DeferredWorld},
-    prelude::*,
-};
+use bevy::{prelude::*, render::extract_component::ExtractComponent};
 
-use super::op::SdBlend;
-
-#[derive(Component)]
+#[derive(Component, Clone, ExtractComponent)]
 #[relationship(relationship_target = SdOperatingOn)]
 pub struct SdOperatedBy(pub Entity);
 
-#[derive(Component, Clone)]
+#[derive(Component, Clone, ExtractComponent)]
 #[relationship_target(relationship = SdOperatedBy)]
 pub struct SdOperatingOn(Vec<Entity>);
 
@@ -41,8 +36,10 @@ macro_rules! op_patients {
 #[derive(Component, Reflect)]
 #[reflect(Component)]
 #[component(on_add = detect_op)]
+#[cfg(feature = "skein")]
 pub struct InitSkeinSdRelationShip;
 
+#[cfg(feature = "skein")]
 fn detect_op(mut world: DeferredWorld, HookContext { entity, .. }: HookContext) {
     {
         let mut commands = world.commands();

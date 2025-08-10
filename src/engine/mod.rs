@@ -1,9 +1,6 @@
 use bevy::asset::{load_internal_asset, weak_handle};
-use bevy::core_pipeline::core_3d::prepare_prepass_textures;
-use bevy::ecs::component::HookContext;
-use bevy::ecs::world::DeferredWorld;
 use bevy::prelude::*;
-use bevy::render::extract_resource::{ExtractResource, ExtractResourcePlugin};
+use bevy::render::extract_resource::ExtractResourcePlugin;
 use bevy::render::render_graph::RenderLabel;
 use bevy::render::{Render, RenderSet};
 use bevy::{
@@ -15,22 +12,29 @@ use bevy::{
     },
 };
 use camera::RayMarchCamera;
-use hierarchy::{InitSkeinSdRelationShip, SdOperatedBy, SdOperatingOn};
+use hierarchy::{SdOperatedBy, SdOperatingOn};
 use nodes::RayMarchEngineNode;
-use object::{SdMaterial, SdMod, SdObject, SdShape, SdTransform};
-use op::{SdBlend, SdOperator};
+use object::{SdMaterial, SdMod, SdShape};
+use op::SdBlend;
 use pipeline::RayMarchEnginePipeline;
 use write_back::MarchWriteBackPlugin;
 
-use crate::engine::nodes::RayMarchEngineBindGroup;
+use crate::engine::buffer::RayMarchBuffer;
 use crate::engine::object::SdModStack;
-use crate::engine::prepare::prepare_ray_march_bind_group;
+use crate::engine::op::SdIndex;
+use crate::engine::prepare::{
+    prepare_raymarch_bind_group, prepare_raymarch_buffer, prepare_raymarch_textures,
+};
+
+#[cfg(feature = "skein")]
+use hierarchy::InitSkeinSdRelationShip;
 
 mod nodes;
 mod pipeline;
 
 mod write_back;
 
+pub mod buffer;
 pub mod camera;
 pub mod hierarchy;
 pub mod object;
@@ -88,20 +92,20 @@ impl Plugin for RayMarchEnginePlugin {
             Shader::from_wgsl
         );
 
+        app.add_systems(
+            Update,
+            (prepare_raymarch_buffer.run_if(
+                not(resource_exists::<RayMarchBuffer>)
+                    .or(ray_march_object_buffer_needs_update)
+                    .or(ray_march_operator_buffer_needs_update),
+            ),),
+        );
+
         app.add_plugins((
             ExtractComponentPlugin::<RayMarchCamera>::default(),
             UniformComponentPlugin::<RayMarchCamera>::default(),
-            ExtractResourcePlugin::<SdObjectStorage>::default(),
-            ExtractResourcePlugin::<SdOperatorStorage>::default(),
+            ExtractResourcePlugin::<RayMarchBuffer>::default(),
         ))
-        .add_systems(
-            PostUpdate,
-            (update_ray_march_buffer
-                .run_if(
-                    ray_march_operator_buffer_needs_update.or(ray_march_object_buffer_needs_update),
-                )
-                .in_set(RayMarchSet),),
-        )
         .add_plugins(MarchWriteBackPlugin)
         .register_type::<RayMarchCamera>()
         .register_type::<SdShape>()
@@ -109,10 +113,10 @@ impl Plugin for RayMarchEnginePlugin {
         .register_type::<SdMod>()
         .register_type::<SdModStack>()
         .register_type::<SdIndex>()
-        .register_type::<InitSkeinSdRelationShip>()
-        .register_type::<SdMaterial>()
-        .init_resource::<SdObjectStorage>()
-        .init_resource::<SdOperatorStorage>();
+        .register_type::<SdMaterial>();
+
+        #[cfg(feature = "skein")]
+        app.register_type::<InitSkeinSdRelationShip>();
 
         let Some(render_app) = app.get_sub_app_mut(RenderApp) else {
             return;
@@ -122,14 +126,8 @@ impl Plugin for RayMarchEnginePlugin {
             .add_systems(
                 Render,
                 (
-                    prepare_prepass_textures.in_set(RenderSet::PrepareResources),
-                    prepare_ray_march_bind_group
-                        .in_set(RenderSet::PrepareBindGroups)
-                        .run_if(
-                            not(resource_exists::<RayMarchEngineBindGroup>)
-                                .or(resource_changed::<SdObjectStorage>)
-                                .or(resource_changed::<SdOperatorStorage>),
-                        ),
+                    prepare_raymarch_textures.in_set(RenderSet::PrepareResources),
+                    prepare_raymarch_bind_group.in_set(RenderSet::PrepareBindGroups), // .run_if(not(resource_exists::<RayMarchEngineBindGroup>)),
                 ),
             )
             .add_render_graph_node::<ViewNodeRunner<RayMarchEngineNode>>(
@@ -159,139 +157,6 @@ impl Plugin for RayMarchEnginePlugin {
 pub enum RayMarchPass {
     RayMarchPass,
     WriteBackPass,
-}
-
-fn update_ray_march_buffer(
-    sdf_object_query: Query<
-        (
-            &SdShape,
-            &SdModStack,
-            &GlobalTransform,
-            Option<&MeshMaterial3d<StandardMaterial>>,
-            Option<&SdMaterial>,
-        ),
-        With<SdOperatedBy>,
-    >,
-    mut sd_object_buffer: ResMut<SdObjectStorage>,
-    sd_op_query: Query<(&SdBlend, &SdIndex, &SdOperatingOn)>,
-    mut sd_op_buffer: ResMut<SdOperatorStorage>,
-    material_as: Res<Assets<StandardMaterial>>,
-) {
-    let nb_shapes = sdf_object_query.iter().len() as u16;
-    let mut current_shape_index = 0;
-    let mut current_op_index = 0;
-
-    sd_object_buffer.data = Vec::with_capacity(nb_shapes as usize);
-    sd_op_buffer.data = Vec::with_capacity(sd_op_query.iter().len());
-
-    let mut push_object = |entity: Entity| -> Option<u16> {
-        let (&shape, modifiers, transform, some_mat_handle, some_sd_mat) =
-            sdf_object_query.get(entity).ok()?;
-
-        let material = match (some_mat_handle, some_sd_mat) {
-            (Some(mat_handle), _) => {
-                let std_material = material_as.get(mat_handle.id()).unwrap_or_else(|| {
-                    panic!("Material handle found but not available in Assets<StandardMaterial>")
-                });
-                SdMaterial::from(std_material.clone())
-            }
-            (None, Some(sd_mat)) => *sd_mat,
-            (None, None) => {
-                panic!(
-                    "Entity {:?} is missing both MeshMaterial3d and SdMaterial",
-                    entity
-                );
-            }
-        };
-
-        let transform = SdTransform {
-            pos: transform.translation(),
-            rot: Vec3::from(transform.rotation().to_euler(EulerRot::XYZ)),
-        };
-
-        sd_object_buffer.data.push(SdObject {
-            shape,
-            material,
-            modifier_stack: modifiers.clone(),
-            transform,
-        });
-
-        let i = Some(current_shape_index);
-        current_shape_index += 1;
-        i
-    };
-
-    for (&op, _index, op_on) in sd_op_query.iter().sort_unstable::<&SdIndex>().rev() {
-        let mut compute_index = |patient: Entity| -> Option<u16> {
-            if sd_op_query.get(patient).is_ok() {
-                let i = Some(nb_shapes + current_op_index);
-                current_op_index += 1;
-                i
-            } else {
-                push_object(patient)
-            }
-        };
-
-        let args = op_on.clone().get_sd_argunments();
-        let lhs = compute_index(args.1).unwrap_or(0);
-        let rhs = compute_index(args.0).unwrap_or(0);
-
-        sd_op_buffer.data.push(SdOperator { op, lhs, rhs });
-    }
-    // log::info!("{:#?}", sd_op_buffer.data);
-    // log::info!("objects :{:#?}", sd_object_buffer.data);
-}
-
-#[warn(dead_code)]
-fn update_object_buffer(
-    sdf_object_query: Query<
-        (
-            Entity,
-            &SdShape,
-            &SdModStack,
-            &GlobalTransform,
-            Option<&MeshMaterial3d<StandardMaterial>>,
-            Option<&SdMaterial>,
-        ),
-        With<SdOperatedBy>,
-    >,
-    mut sd_object_buffer: ResMut<SdObjectStorage>,
-    material_as: Res<Assets<StandardMaterial>>,
-) {
-    let nb_shapes = sdf_object_query.iter().len() as u16;
-    sd_object_buffer.data = Vec::with_capacity(nb_shapes as usize);
-
-    for (entity, &shape, modifiers, transform, some_mat_handle, some_sd_mat) in sdf_object_query {
-        let material = match (some_mat_handle, some_sd_mat) {
-            (Some(mat_handle), _) => {
-                let std_material = material_as.get(mat_handle.id()).unwrap_or_else(|| {
-                    panic!("Material handle found but not available in Assets<StandardMaterial>")
-                });
-                SdMaterial::from(std_material.clone())
-            }
-            (None, Some(sd_mat)) => *sd_mat,
-            (None, None) => {
-                panic!(
-                    "Entity {:?} is missing both MeshMaterial3d and SdMaterial",
-                    entity
-                );
-            }
-        };
-
-        let transform = SdTransform {
-            pos: transform.translation(),
-            rot: Vec3::from(transform.rotation().to_euler(EulerRot::XYZ)),
-        };
-
-        sd_object_buffer.data.push(SdObject {
-            shape,
-            material,
-            modifier_stack: modifiers.clone(),
-            transform,
-        });
-    }
-
-    // log::info!("objects :{:#?}", sd_object_buffer.data);
 }
 
 fn ray_march_operator_buffer_needs_update(
@@ -328,40 +193,3 @@ fn ray_march_object_buffer_needs_update(
 ) -> bool {
     !check_object_query.is_empty()
 }
-
-#[derive(Resource, Default, Debug, Clone, ExtractResource)]
-pub struct SdObjectStorage {
-    pub data: Vec<SdObject>,
-}
-
-#[derive(Resource, Default, Debug, Clone, ExtractResource)]
-pub struct SdOperatorStorage {
-    pub data: Vec<SdOperator>,
-}
-
-#[derive(Reflect, Component, Ord, PartialOrd, PartialEq, Eq, Default, Debug, Clone, Copy)]
-#[component(on_add = update_sd_index)]
-#[reflect(Component)]
-pub struct SdIndex(pub u32);
-
-fn update_sd_index(mut world: DeferredWorld, HookContext { entity, .. }: HookContext) {
-    let mut depth = 0;
-    let mut current_entity = entity;
-
-    while let Some(parent) = world.get::<SdOperatedBy>(current_entity) {
-        depth += 1;
-        current_entity = parent.0;
-    }
-
-    set_index(&mut world, entity, depth);
-}
-
-#[inline]
-fn set_index(world: &mut DeferredWorld, entity: Entity, index: u32) {
-    if let Some(mut sd_index) = world.get_mut::<SdIndex>(entity) {
-        sd_index.0 = index;
-    }
-}
-
-#[derive(SystemSet, Debug, Clone, PartialEq, Eq, Hash)]
-pub struct RayMarchSet;

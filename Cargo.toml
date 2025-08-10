@@ -10,6 +10,9 @@ readme = "README.md"
 keywords = ["bevy", "sdf", "graphics", "ray_marching"]
 categories = ["graphics", "rendering", "games"]
 
+[features]
+skein = []
+
 [dependencies]
 bevy = { version = "0.16.1", default-features = false, features = [
     "bevy_asset",

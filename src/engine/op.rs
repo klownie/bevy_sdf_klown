@@ -1,5 +1,8 @@
-use crate::engine::SdIndex;
+use crate::engine::hierarchy::{SdOperatedBy, SdOperatingOn};
+use bevy::ecs::component::HookContext;
+use bevy::ecs::world::DeferredWorld;
 use bevy::prelude::*;
+use bevy::render::extract_component::ExtractComponent;
 use bevy::render::render_resource::ShaderType;
 
 #[derive(Reflect, Debug, Clone, Copy)]
@@ -33,7 +36,8 @@ pub struct SdBlendUniform {
 }
 
 #[repr(u32)]
-#[derive(Reflect, Component, Debug, Clone, Copy, Default)]
+#[derive(Reflect, Component, Debug, Clone, Copy, Default, ExtractComponent)]
+#[extract_component_filter(With<SdOperatingOn>)]
 #[require(Name::new("SdOp"), SdIndex)]
 #[reflect(Component)]
 pub enum SdBlend {
@@ -88,5 +92,42 @@ impl SdBlend {
         let id_data = (disc as u32) | ((rev as u32) << 8) | ((extra as u32) << 16);
 
         SdBlendUniform { id_data }
+    }
+}
+
+#[derive(
+    Reflect,
+    Component,
+    Ord,
+    PartialOrd,
+    PartialEq,
+    Eq,
+    Default,
+    Debug,
+    Clone,
+    Copy,
+    ExtractComponent,
+)]
+#[extract_component_filter(With<SdOperatingOn>)]
+#[component(on_add = update_sd_index)]
+#[reflect(Component)]
+pub struct SdIndex(pub u32);
+
+fn update_sd_index(mut world: DeferredWorld, HookContext { entity, .. }: HookContext) {
+    let mut depth = 0;
+    let mut current_entity = entity;
+
+    while let Some(parent) = world.get::<SdOperatedBy>(current_entity) {
+        depth += 1;
+        current_entity = parent.0;
+    }
+
+    set_index(&mut world, entity, depth);
+}
+
+#[inline]
+fn set_index(world: &mut DeferredWorld, entity: Entity, index: u32) {
+    if let Some(mut sd_index) = world.get_mut::<SdIndex>(entity) {
+        sd_index.0 = index;
     }
 }

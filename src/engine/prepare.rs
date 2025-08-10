@@ -15,16 +15,18 @@ use bevy::{
 };
 
 use crate::engine::{
-    SdObjectStorage, SdOperatorStorage,
+    SdIndex,
+    buffer::RayMarchBuffer,
     camera::RayMarchCamera,
+    hierarchy::{SdOperatedBy, SdOperatingOn},
     nodes::RayMarchEngineBindGroup,
-    object::{SdModUniform, SdObjectUniform},
-    op::SdOperatorUniform,
+    object::{SdMaterial, SdModStack, SdModUniform, SdObjectUniform, SdShape, SdTransform},
+    op::{SdBlend, SdOperator, SdOperatorUniform},
     pipeline::RayMarchEnginePipeline,
     prepass::RayMarchPrepass,
 };
 
-pub fn prepare_ray_march_resources(
+pub fn prepare_raymarch_textures(
     query: Query<(Entity, &ExtractedCamera, Option<&RayMarchPrepass>), With<RayMarchCamera>>,
     render_device: Res<RenderDevice>,
     mut commands: Commands,
@@ -226,20 +228,17 @@ pub fn prepare_ray_march_resources(
     }
 }
 
-pub fn prepare_ray_march_bind_group(
+pub fn prepare_raymarch_bind_group(
     mut commands: Commands,
     query: Query<(&ViewPrepassTextures, &RayMarchPrepass), With<RayMarchCamera>>,
     ray_march_pipeline: Res<RayMarchEnginePipeline>,
     device: Res<RenderDevice>,
-    queue: Res<RenderQueue>,
+    raymarch_buffer: Res<RayMarchBuffer>,
     settings_uniforms: Res<ComponentUniforms<RayMarchCamera>>,
     view_uniforms: Res<ViewUniforms>,
     light_meta: Res<LightMeta>,
     clusterables: Res<GlobalClusterableObjectMeta>,
-    object_storage: Res<SdObjectStorage>,
-    operator_storage: Res<SdOperatorStorage>,
 ) {
-    log::info!("preparing_bindgroup");
     let Ok((view_prepass, raymarch_prepass)) = query.single() else {
         return;
     };
@@ -272,50 +271,13 @@ pub fn prepare_ray_march_bind_group(
         )),
     );
 
-    let mut sd_mod_buf = BufferVec::<SdModUniform>::new(BufferUsages::STORAGE);
-    // let mut sd_mod_data_buf = BufferVec::<f32>::new(BufferUsages::STORAGE);
-    let mut sd_object_buf = BufferVec::<SdObjectUniform>::new(BufferUsages::STORAGE);
-    sd_object_buf.reserve(object_storage.data.len(), &device);
-
-    let mut current_mod_index = 0;
-    object_storage.data.iter().for_each(|obj| {
-        // Push modifiers and count them
-        let start_index = current_mod_index;
-        for &modifier in obj.modifier_stack.modifiers.iter().rev() {
-            current_mod_index = sd_mod_buf.push(modifier.uniform()) + 1;
-        }
-
-        sd_object_buf.push(SdObjectUniform {
-            shape: obj.shape.clone().uniform(),
-            material: obj.material.uniform(),
-            modifier_stack: obj.modifier_stack.clone().uniform(start_index),
-            transform: obj.transform.uniform(),
-        });
-    });
-
-    sd_mod_buf.reserve(current_mod_index, &device);
-
-    let mut sd_op_buf = BufferVec::<SdOperatorUniform>::new(BufferUsages::STORAGE);
-    sd_op_buf.reserve(operator_storage.data.len(), &device);
-    operator_storage.data.iter().for_each(|&op| {
-        sd_op_buf.push(op.uniform());
-    });
-
-    sd_mod_buf
-        .is_empty()
-        .then(|| sd_mod_buf.push(SdModUniform::default()));
-
-    sd_object_buf.write_buffer(&device, &queue);
-    sd_op_buf.write_buffer(&device, &queue);
-    sd_mod_buf.write_buffer(&device, &queue);
-
     let storage_bind_group = device.create_bind_group(
         "marcher_storage_bind_group",
         &ray_march_pipeline.storage_layout,
         &BindGroupEntries::sequential((
-            sd_object_buf.binding().unwrap(),
-            sd_op_buf.binding().unwrap(),
-            sd_mod_buf.binding().unwrap(),
+            raymarch_buffer.object.as_entire_binding(),
+            raymarch_buffer.operator.as_entire_binding(),
+            raymarch_buffer.modifier.as_entire_binding(),
         )),
     );
 
@@ -339,5 +301,103 @@ pub fn prepare_ray_march_bind_group(
         texture_bind_group,
         storage_bind_group,
         prepass_bind_group,
+    });
+}
+
+pub fn prepare_raymarch_buffer(
+    mut commands: Commands,
+    device: Res<RenderDevice>,
+    queue: Res<RenderQueue>,
+    sdf_object_query: Query<
+        (
+            &SdShape,
+            &SdModStack,
+            &GlobalTransform,
+            Option<&MeshMaterial3d<StandardMaterial>>,
+            Option<&SdMaterial>,
+        ),
+        With<SdOperatedBy>,
+    >,
+    sd_op_query: Query<(&SdBlend, &SdIndex, &SdOperatingOn)>,
+    material_as: Res<Assets<StandardMaterial>>,
+) {
+    let nb_shapes = sdf_object_query.iter().len() as u16;
+    let mut current_shape_index = 0;
+    let mut current_op_index = 0;
+    let mut current_mod_index = 0;
+
+    let mut sd_object_buffer = BufferVec::<SdObjectUniform>::new(BufferUsages::STORAGE);
+    let mut sd_op_buffer = BufferVec::<SdOperatorUniform>::new(BufferUsages::STORAGE);
+    let mut sd_mod_buffer = BufferVec::<SdModUniform>::new(BufferUsages::STORAGE);
+
+    let mut push_object = |entity: Entity| -> Option<u16> {
+        let (&shape, modifiers, transform, some_mat_handle, some_sd_mat) =
+            sdf_object_query.get(entity).ok()?;
+
+        let material = match (some_mat_handle, some_sd_mat) {
+            (Some(mat_handle), _) => {
+                let std_material = material_as.get(mat_handle.id()).unwrap_or_else(|| {
+                    panic!("Material handle found but not available in Assets<StandardMaterial>")
+                });
+                SdMaterial::from(std_material.clone())
+            }
+            (None, Some(sd_mat)) => *sd_mat,
+            (None, None) => {
+                panic!(
+                    "Entity {:?} is missing both MeshMaterial3d and SdMaterial",
+                    entity
+                );
+            }
+        };
+
+        let transform = SdTransform {
+            pos: transform.translation(),
+            rot: Vec3::from(transform.rotation().to_euler(EulerRot::XYZ)),
+        };
+
+        // Push modifiers and count them
+        let start_index = current_mod_index;
+        for &modifier in modifiers.modifiers.iter().rev() {
+            current_mod_index = sd_mod_buffer.push(modifier.uniform()) + 1;
+        }
+
+        sd_object_buffer.push(SdObjectUniform {
+            shape: shape.uniform(),
+            material: material.uniform(),
+            modifier_stack: modifiers.clone().uniform(start_index),
+            transform: transform.uniform(),
+        });
+
+        let i = Some(current_shape_index);
+        current_shape_index += 1;
+        i
+    };
+
+    for (&op, _index, op_on) in sd_op_query.iter().sort_unstable::<&SdIndex>().rev() {
+        let mut compute_index = |patient: Entity| -> Option<u16> {
+            if sd_op_query.get(patient).is_ok() {
+                let i = Some(nb_shapes + current_op_index);
+                current_op_index += 1;
+                i
+            } else {
+                push_object(patient)
+            }
+        };
+
+        let args = op_on.clone().get_sd_argunments();
+        let lhs = compute_index(args.1).unwrap_or(0);
+        let rhs = compute_index(args.0).unwrap_or(0);
+
+        sd_op_buffer.push(SdOperator { op, lhs, rhs }.uniform());
+    }
+
+    sd_object_buffer.write_buffer(&device, &queue);
+    sd_op_buffer.write_buffer(&device, &queue);
+    sd_mod_buffer.write_buffer(&device, &queue);
+
+    commands.insert_resource(RayMarchBuffer {
+        object: sd_object_buffer.buffer().unwrap().clone(),
+        operator: sd_op_buffer.buffer().unwrap().clone(),
+        modifier: sd_mod_buffer.buffer().unwrap().clone(),
     });
 }
