@@ -32,8 +32,9 @@ fn setup(mut commands: Commands) {
         SdBlend::SmoothUnion { k: 1.5 },
         op_patients![
             (
-                SdShape::Box {
+                SdShape::BoxFrame {
                     bounds: Vec3::new(10.0, 5.0, 10.0),
+                    edge: 1.0,
                 },
                 SdModStack {
                     modifiers: vec![

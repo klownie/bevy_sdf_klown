@@ -1,5 +1,9 @@
 #define_import_path bevy_sdf::selectors
 
+#import bevy_sdf::bindings::{
+    sd_mod,
+}
+
 #import bevy_sdf::utils::{
     // Signed distance primitives
     sdBunny, sdBox, sdBoxFrame, sdCappedCone, sdCappedTorus, sdCappedVerticalCone,
@@ -136,9 +140,7 @@ fn select_shape(p: vec3f, shape: SdShape, transform: SdTransform, modifiers: SdM
         }
     }
 }
-
-@group(2) @binding(2) var<storage, read> sd_mod: array<SdMod>;
-
+ 
 fn apply_mod(p: vec3f, modifier: SdMod) -> vec3f {
     switch modifier.id {
         case 0u {

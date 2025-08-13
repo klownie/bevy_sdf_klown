@@ -5,6 +5,24 @@
 #import bevy_pbr::lighting::getDistanceAttenuation
 #import bevy_pbr::mesh_view_types::ClusterableObject
 
+#import bevy_sdf::bindings::{
+    depth_texture,
+    settings,
+
+    sd_object,
+    sd_ops,
+    sd_mod,
+
+    depth_prepass,
+    normal_prepass,
+    material_prepass,
+    mask_prepass,
+
+    scaled_depth_prepass,
+    scaled_normal_prepass,
+    scaled_material_prepass,
+    scaled_mask_prepass,
+};
 #import bevy_sdf::selectors::{select_shape, select_blend};
 #import bevy_sdf::types::{
     // SDF Object-related
@@ -37,37 +55,6 @@
     // Marching result
     MarchOutput,
 }
-
-// @group(1) @binding(0) var screen_texture: texture_storage_2d<rgba16float, write>;
-@group(1) @binding(0) var depth_texture: texture_depth_2d;
-struct RayMarchCamera {
-    depth_scale: f32,
-    eps: f32,
-    w: f32,
-    max_distance: f32,
-    max_steps: u32,
-    shadow_eps: f32,
-    shadow_max_steps: u32,
-    shadow_max_distance: f32,
-    shadow_softness: f32,
-    normal_eps: f32
-}
-@group(1) @binding(1) var<uniform> settings: RayMarchCamera;
-
-// PERF: seperate the sd_object buffer into multiple buffers for more performance
-@group(2) @binding(0) var<storage, read> sd_object: array<SdObjectPacked>;
-@group(2) @binding(1) var<storage, read> sd_ops: array<SdOperatorPacked>;
-@group(2) @binding(2) var<storage, read> sd_mod: array<SdMod>;
-//@group(2) @binding(2) var<storage, read> sd_data: array<f32>;
-
-@group(3) @binding(0) var depth_prepass: texture_storage_2d<r16float, write>;
-@group(3) @binding(1) var normal_prepass: texture_storage_2d<rgba16float, write>;
-@group(3) @binding(2) var material_prepass: texture_storage_2d<rgba16float, write>;
-@group(3) @binding(3) var mask_prepass: texture_storage_2d<r16float, write>;
-@group(3) @binding(4) var scaled_depth_prepass: texture_storage_2d<r16float, read_write>;
-@group(3) @binding(5) var scaled_normal_prepass: texture_storage_2d<rgba16float, read_write>;
-@group(3) @binding(6) var scaled_material_prepass: texture_storage_2d<rgba16float, read_write>;
-@group(3) @binding(7) var scaled_mask_prepass: texture_storage_2d<r16float, read_write>;
 
 // PERF: Make op_resut recyce te sapce in te array to get a significant perforamce boost when dealing with large amounts of OPS
 const MAX_OPS: u32 = 8;

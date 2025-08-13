@@ -275,9 +275,9 @@ pub fn prepare_raymarch_bind_group(
         "marcher_storage_bind_group",
         &ray_march_pipeline.storage_layout,
         &BindGroupEntries::sequential((
-            raymarch_buffer.object.as_entire_binding(),
-            raymarch_buffer.operator.as_entire_binding(),
-            raymarch_buffer.modifier.as_entire_binding(),
+            raymarch_buffer.object.as_entire_buffer_binding(),
+            raymarch_buffer.operator.as_entire_buffer_binding(),
+            raymarch_buffer.modifier.as_entire_buffer_binding(),
         )),
     );
 

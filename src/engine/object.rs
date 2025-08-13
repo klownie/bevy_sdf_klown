@@ -20,6 +20,17 @@ pub struct SdObject {
     pub transform: SdTransform,
 }
 
+impl SdObject {
+    fn uniform(&self, start_mod_index: usize) -> SdObjectUniform {
+        SdObjectUniform {
+            shape: self.shape.uniform(),
+            material: self.material.uniform(),
+            modifier_stack: self.modifier_stack.clone().uniform(start_mod_index),
+            transform: self.transform.uniform(),
+        }
+    }
+}
+
 #[derive(ShaderType, Clone, Copy)]
 pub struct SdShapeUniform {
     pub id: u32,

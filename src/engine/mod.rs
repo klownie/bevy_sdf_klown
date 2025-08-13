@@ -20,6 +20,7 @@ use pipeline::RayMarchEnginePipeline;
 use write_back::MarchWriteBackPlugin;
 
 use crate::engine::buffer::RayMarchBuffer;
+use crate::engine::nodes::RayMarchEngineBindGroup;
 use crate::engine::object::SdModStack;
 use crate::engine::op::SdIndex;
 use crate::engine::prepare::{
@@ -46,6 +47,8 @@ const RAY_MARCH_MAIN_PASS_HANDLE: Handle<Shader> =
     weak_handle!("ca4a5dbf-4da9-4779-bcdc-dd3186088e08");
 const MARCH_WRITE_BACK_PASS_HANDLE: Handle<Shader> =
     weak_handle!("a780d707-67bf-45b5-b77e-76dad6c17e5f");
+const RAY_MARCH_BINDINGS_HANDLE: Handle<Shader> =
+    weak_handle!("33e9f2a9-9179-4fe3-b64b-8bb36cdcd3e3");
 const RAY_MARCH_UTILS_HANDLE: Handle<Shader> = weak_handle!("0a9451d0-4b19-453b-98bc-ec755845d8f3");
 const RAY_MARCH_TYPES_HANDLE: Handle<Shader> = weak_handle!("689f31b3-bdf6-4770-b18a-3979d671045c");
 const RAY_MARCH_SELECTORS_HANDLE: Handle<Shader> =
@@ -68,6 +71,13 @@ impl Plugin for RayMarchEnginePlugin {
             app,
             MARCH_WRITE_BACK_PASS_HANDLE,
             "../shaders/write_back.wgsl",
+            Shader::from_wgsl
+        );
+
+        load_internal_asset!(
+            app,
+            RAY_MARCH_BINDINGS_HANDLE,
+            "../shaders/bindings.wgsl",
             Shader::from_wgsl
         );
 
@@ -127,7 +137,8 @@ impl Plugin for RayMarchEnginePlugin {
                 Render,
                 (
                     prepare_raymarch_textures.in_set(RenderSet::PrepareResources),
-                    prepare_raymarch_bind_group.in_set(RenderSet::PrepareBindGroups), // .run_if(not(resource_exists::<RayMarchEngineBindGroup>)),
+                    prepare_raymarch_bind_group.in_set(RenderSet::PrepareBindGroups), // .run_if(resource_changed::<ClearColor>),
+                                                                                      // .run_if(not(resource_exists::<RayMarchEngineBindGroup>)),
                 ),
             )
             .add_render_graph_node::<ViewNodeRunner<RayMarchEngineNode>>(
