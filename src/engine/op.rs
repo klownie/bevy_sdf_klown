@@ -1,5 +1,5 @@
 use crate::engine::hierarchy::{SdOperatedBy, SdOperatingOn};
-use bevy::ecs::component::HookContext;
+use bevy::ecs::lifecycle::HookContext;
 use bevy::ecs::world::DeferredWorld;
 use bevy::prelude::*;
 use bevy::render::extract_component::ExtractComponent;

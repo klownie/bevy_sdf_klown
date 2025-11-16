@@ -10,7 +10,7 @@ use bevy::{
             TextureDimension, TextureFormat, TextureUsages, TextureViewDescriptor,
         },
         renderer::{RenderDevice, RenderQueue},
-        view::ViewUniforms,
+        view::{ViewTarget, ViewUniforms},
     },
 };
 
@@ -20,7 +20,9 @@ use crate::engine::{
     camera::RayMarchCamera,
     hierarchy::{SdOperatedBy, SdOperatingOn},
     nodes::RayMarchEngineBindGroup,
-    object::{SdMaterial, SdModStack, SdModUniform, SdObjectUniform, SdShape, SdTransform},
+    object::{
+        SdMaterial, SdModStack, SdModUniform, SdObject, SdObjectUniform, SdShape, SdTransform,
+    },
     op::{SdBlend, SdOperator, SdOperatorUniform},
     pipeline::RayMarchEnginePipeline,
     prepass::RayMarchPrepass,
@@ -82,48 +84,6 @@ pub fn prepare_raymarch_textures(
             })
             .create_view(&TextureViewDescriptor {
                 label: Some("raymarch_normal_view"),
-                base_mip_level: 0,
-                aspect: TextureAspect::All,
-                base_array_layer: 0,
-                ..default()
-            });
-
-        let material = render_device
-            .create_texture(&TextureDescriptor {
-                label: Some("raymarch_material"),
-                size,
-                mip_level_count: 1,
-                sample_count: 1,
-                dimension: TextureDimension::D2,
-                format: TextureFormat::Rgba16Float,
-                usage: TextureUsages::COPY_DST
-                    | TextureUsages::STORAGE_BINDING
-                    | TextureUsages::TEXTURE_BINDING,
-                view_formats: &[],
-            })
-            .create_view(&TextureViewDescriptor {
-                label: Some("raymarch_material_view"),
-                base_mip_level: 0,
-                aspect: TextureAspect::All,
-                base_array_layer: 0,
-                ..default()
-            });
-
-        let mask = render_device
-            .create_texture(&TextureDescriptor {
-                label: Some("raymarch_mask"),
-                size,
-                mip_level_count: 1,
-                sample_count: 1,
-                dimension: TextureDimension::D2,
-                format: TextureFormat::R16Float,
-                usage: TextureUsages::COPY_DST
-                    | TextureUsages::STORAGE_BINDING
-                    | TextureUsages::TEXTURE_BINDING,
-                view_formats: &[],
-            })
-            .create_view(&TextureViewDescriptor {
-                label: Some("raymarch_mask_view"),
                 base_mip_level: 0,
                 aspect: TextureAspect::All,
                 base_array_layer: 0,
@@ -193,36 +153,12 @@ pub fn prepare_raymarch_textures(
                 ..default()
             });
 
-        let scaled_mask = render_device
-            .create_texture(&TextureDescriptor {
-                label: Some("scaled_raymarch_mask"),
-                size,
-                mip_level_count: 1,
-                sample_count: 1,
-                dimension: TextureDimension::D2,
-                format: TextureFormat::R16Float,
-                usage: TextureUsages::COPY_DST
-                    | TextureUsages::STORAGE_BINDING
-                    | TextureUsages::TEXTURE_BINDING,
-                view_formats: &[],
-            })
-            .create_view(&TextureViewDescriptor {
-                label: Some("scaled_raymarch_mask_view"),
-                base_mip_level: 0,
-                aspect: TextureAspect::All,
-                base_array_layer: 0,
-                ..default()
-            });
-
         commands.entity(entity).insert(RayMarchPrepass {
             depth,
             normal,
-            material,
-            mask,
             scaled_depth,
             scaled_normal,
             scaled_material,
-            scaled_mask,
             view_size,
         });
     }
@@ -230,7 +166,7 @@ pub fn prepare_raymarch_textures(
 
 pub fn prepare_raymarch_bind_group(
     mut commands: Commands,
-    query: Query<(&ViewPrepassTextures, &RayMarchPrepass), With<RayMarchCamera>>,
+    query: Query<(&ViewTarget, &ViewPrepassTextures, &RayMarchPrepass), With<RayMarchCamera>>,
     ray_march_pipeline: Res<RayMarchEnginePipeline>,
     device: Res<RenderDevice>,
     raymarch_buffer: Res<RayMarchBuffer>,
@@ -239,7 +175,7 @@ pub fn prepare_raymarch_bind_group(
     light_meta: Res<LightMeta>,
     clusterables: Res<GlobalClusterableObjectMeta>,
 ) {
-    let Ok((view_prepass, raymarch_prepass)) = query.single() else {
+    let Ok((view_target, view_prepass, raymarch_prepass)) = query.single() else {
         return;
     };
     let (Some(settings_binding), Some(view_binding), Some(light_binding), Some(cluster_binding)) = (
@@ -251,11 +187,13 @@ pub fn prepare_raymarch_bind_group(
         return;
     };
 
+    let view_target = view_target.get_unsampled_color_attachment();
+
     let texture_bind_group = device.create_bind_group(
         "ray_march_texture_bind_group",
         &ray_march_pipeline.texture_layout,
         &BindGroupEntries::sequential((
-            // view_target.get_unsampled_color_attachment().view,
+            view_target.view,
             view_prepass.depth_view().unwrap(),
             settings_binding.clone(),
         )),
@@ -287,12 +225,9 @@ pub fn prepare_raymarch_bind_group(
         &BindGroupEntries::sequential((
             &raymarch_prepass.depth,
             &raymarch_prepass.normal,
-            &raymarch_prepass.material,
-            &raymarch_prepass.mask,
             &raymarch_prepass.scaled_depth,
             &raymarch_prepass.scaled_normal,
             &raymarch_prepass.scaled_material,
-            &raymarch_prepass.scaled_mask,
         )),
     );
 
@@ -331,7 +266,7 @@ pub fn prepare_raymarch_buffer(
     let mut sd_mod_buffer = BufferVec::<SdModUniform>::new(BufferUsages::STORAGE);
 
     let mut push_object = |entity: Entity| -> Option<u16> {
-        let (&shape, modifiers, transform, some_mat_handle, some_sd_mat) =
+        let (&shape, modifier_stack, transform, some_mat_handle, some_sd_mat) =
             sdf_object_query.get(entity).ok()?;
 
         let material = match (some_mat_handle, some_sd_mat) {
@@ -357,16 +292,19 @@ pub fn prepare_raymarch_buffer(
 
         // Push modifiers and count them
         let start_index = current_mod_index;
-        for &modifier in modifiers.modifiers.iter().rev() {
+        for &modifier in modifier_stack.modifiers.iter().rev() {
             current_mod_index = sd_mod_buffer.push(modifier.uniform()) + 1;
         }
 
-        sd_object_buffer.push(SdObjectUniform {
-            shape: shape.uniform(),
-            material: material.uniform(),
-            modifier_stack: modifiers.clone().uniform(start_index),
-            transform: transform.uniform(),
-        });
+        sd_object_buffer.push(
+            SdObject {
+                shape,
+                material,
+                modifier_stack: modifier_stack.clone(),
+                transform,
+            }
+            .uniform(start_index),
+        );
 
         let i = Some(current_shape_index);
         current_shape_index += 1;

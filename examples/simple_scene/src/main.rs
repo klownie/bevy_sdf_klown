@@ -1,7 +1,10 @@
 use std::f32::consts::FRAC_PI_2;
 
+use bevy::camera::CameraMainTextureUsages;
 use bevy::core_pipeline::prepass::DepthPrepass;
 use bevy::prelude::*;
+use bevy::render::render_resource::TextureUsages;
+use bevy::render::view::Hdr;
 use bevy_egui::EguiPlugin;
 use bevy_inspector_egui::quick::WorldInspectorPlugin;
 use bevy_panorbit_camera::{PanOrbitCamera, PanOrbitCameraPlugin};
@@ -18,9 +21,7 @@ fn main() {
         .add_plugins((
             DefaultPlugins,
             RayMarchingPlugin,
-            EguiPlugin {
-                enable_multipass_for_primary_context: true,
-            },
+            EguiPlugin::default(),
             WorldInspectorPlugin::new(),
             PanOrbitCameraPlugin,
         ))
@@ -28,7 +29,11 @@ fn main() {
         .run();
 }
 
-fn setup(mut commands: Commands, mut materials: ResMut<Assets<StandardMaterial>>) {
+fn setup(
+    mut commands: Commands,
+    mut meshes: ResMut<Assets<Mesh>>,
+    mut materials: ResMut<Assets<StandardMaterial>>,
+) {
     // RayMarch Scene
     //
     // This example scene can be illustarted like this:
@@ -42,7 +47,7 @@ fn setup(mut commands: Commands, mut materials: ResMut<Assets<StandardMaterial>>
     // WARN: A SdOp will only take in acount TOW RelationShips to it using SdOperatedBy
     // any amount SdOperatedBy used above or under that can BREAK the raymarcher in unexpected ways
 
-    // Raymarched Sene
+    // Raymarched Scene
     commands.spawn((
         SdBlend::SmoothUnion { k: 1.0 },
         op_patients![
@@ -90,6 +95,13 @@ fn setup(mut commands: Commands, mut materials: ResMut<Assets<StandardMaterial>>
         ],
     ));
 
+    // Poly Scene
+    commands.spawn((
+        Mesh3d(meshes.add(Cuboid::new(1.0, 1.0, 1.0))),
+        MeshMaterial3d(materials.add(Color::srgb_u8(124, 144, 255))),
+        Transform::from_xyz(0.0, 0.5, 0.0),
+    ));
+
     // Light
     commands.spawn((
         PointLight {
@@ -103,11 +115,12 @@ fn setup(mut commands: Commands, mut materials: ResMut<Assets<StandardMaterial>>
     commands.spawn((
         RayMarchCamera::default(),
         Camera3d::default(),
+        Hdr,
         Camera {
-            hdr: false,
             msaa_writeback: false,
             ..default()
         },
+        CameraMainTextureUsages::default().with(TextureUsages::STORAGE_BINDING),
         PanOrbitCamera::default(),
         Msaa::Off,
         DepthPrepass::default(),

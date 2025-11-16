@@ -21,7 +21,7 @@ pub struct SdObject {
 }
 
 impl SdObject {
-    fn uniform(&self, start_mod_index: usize) -> SdObjectUniform {
+    pub fn uniform(&self, start_mod_index: usize) -> SdObjectUniform {
         SdObjectUniform {
             shape: self.shape.uniform(),
             material: self.material.uniform(),

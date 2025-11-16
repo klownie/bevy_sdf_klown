@@ -6,6 +6,7 @@
 #import bevy_pbr::mesh_view_types::ClusterableObject
 
 #import bevy_sdf::bindings::{
+    screen_texture,
     depth_texture,
     settings,
 
@@ -15,13 +16,11 @@
 
     depth_prepass,
     normal_prepass,
-    material_prepass,
     mask_prepass,
 
     scaled_depth_prepass,
     scaled_normal_prepass,
     scaled_material_prepass,
-    scaled_mask_prepass,
 };
 #import bevy_sdf::selectors::{select_shape, select_blend};
 #import bevy_sdf::types::{
@@ -370,7 +369,6 @@ fn init(@builtin(global_invocation_id) id: vec3u) {
     let rd = normalize(ro * view.world_from_clip[2].w - view.world_from_clip[2].xyz);
 
     let m = march(ro, rd);
-    let world_depth = textureLoad(depth_texture, vec2u(downscaled_coord), 0);
 
     let material = apply_lighting(m.pos, rd, m.normal, m.material);
 
@@ -383,25 +381,27 @@ fn init(@builtin(global_invocation_id) id: vec3u) {
     textureStore(scaled_depth_prepass, id.xy, vec4f(ray_depth));
     textureStore(scaled_normal_prepass, id.xy, vec4f(vec3f(m.normal * .5 + .5), 1.));
     textureStore(scaled_material_prepass, id.xy, vec4f(vec3f(material), 1.));
-
-    let mask = f32(depth > world_depth);
-
-    textureStore(scaled_mask_prepass, id.xy, vec4f(mask));
 }
 
 @compute @workgroup_size(8, 8, 1)
 fn scale(@builtin(global_invocation_id) id: vec3u) {
+
     let buffer_size = view.viewport.zw;
     let frag_coord = vec2f(id.xy);
     let upscaled_coord = (frag_coord - (buffer_size * 0.5)) * settings.depth_scale + (buffer_size * 0.5);
 
-    let depth_pass = textureLoad(scaled_depth_prepass, vec2u(upscaled_coord));
+
+    let depth_pass = textureLoad(scaled_depth_prepass, vec2u(upscaled_coord)).x;
+    let world_depth = textureLoad(depth_texture, id.xy, 0);
+    if depth_pass < world_depth {
+        return;
+    }
+
     let normal_pass = textureLoad(scaled_normal_prepass, vec2u(upscaled_coord));
     let material_pass = textureLoad(scaled_material_prepass, vec2u(upscaled_coord));
-    let mask_pass = textureLoad(scaled_mask_prepass, vec2u(upscaled_coord));
 
-    textureStore(depth_prepass, id.xy, depth_pass);
+
+    textureStore(depth_prepass, id.xy, vec4f(depth_pass));
     textureStore(normal_prepass, id.xy, normal_pass);
-    textureStore(material_prepass, id.xy, material_pass);
-    textureStore(mask_prepass, id.xy, mask_pass);
+    textureStore(screen_texture, id.xy, material_pass);
 }

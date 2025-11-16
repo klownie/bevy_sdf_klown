@@ -1,5 +1,7 @@
-use bevy::core_pipeline::prepass::DepthPrepass;
 use bevy::prelude::*;
+use bevy::render::render_resource::TextureUsages;
+use bevy::render::view::Hdr;
+use bevy::{camera::CameraMainTextureUsages, core_pipeline::prepass::DepthPrepass};
 use bevy_egui::EguiPlugin;
 use bevy_inspector_egui::quick::WorldInspectorPlugin;
 use bevy_panorbit_camera::{PanOrbitCamera, PanOrbitCameraPlugin};
@@ -16,9 +18,7 @@ fn main() {
         .add_plugins((
             DefaultPlugins,
             RayMarchingPlugin,
-            EguiPlugin {
-                enable_multipass_for_primary_context: true,
-            },
+            EguiPlugin::default(),
             WorldInspectorPlugin::new(),
             PanOrbitCameraPlugin,
         ))
@@ -32,11 +32,18 @@ fn setup(mut commands: Commands) {
         SdBlend::SmoothUnion { k: 1.5 },
         op_patients![
             (
-                SdShape::Box {
+                SdShape::BoxFrame {
                     bounds: Vec3::new(10.0, 5.0, 10.0),
+                    edge: 1.0,
                 },
                 SdModStack {
-                    modifiers: vec![SdMod::Twist { k: 0.1 }]
+                    modifiers: vec![
+                        SdMod::InfArray {
+                            c: Vec3::new(20.0, 20.0, 12.0)
+                        },
+                        SdMod::Twist { k: 0.1 },
+                        SdMod::SymetryX
+                    ]
                 },
                 AnimateTwitModifier,
                 Transform::from_xyz(0.0, -2.5, 0.0),
@@ -62,8 +69,6 @@ fn setup(mut commands: Commands) {
                 SdMaterial {
                     color: Vec4::new(0.7, 0.1, 0.5, 1.0),
                     roughness: 1.0,
-                    sss_strength: 0.9,
-                    sss_radius: Vec3::new(1.0, 0.7, 0.2),
                     ..default()
                 },
             )
@@ -100,10 +105,11 @@ fn setup(mut commands: Commands) {
         },
         Camera3d::default(),
         Camera {
-            hdr: false,
             msaa_writeback: false,
             ..default()
         },
+        Hdr,
+        CameraMainTextureUsages::default().with(TextureUsages::STORAGE_BINDING),
         PanOrbitCamera::default(),
         Msaa::Off,
         DepthPrepass::default(),
@@ -124,7 +130,7 @@ fn animate_twist_modifier(
                 let eas_func = EaseFunction::SmootherStep;
                 *k = eas_func.sample_unchecked(time.elapsed_secs().sin().abs())
                     * time.elapsed_secs_wrapped().sin().signum()
-                    / 10.0;
+                    / 30.0;
             }
         }
     }

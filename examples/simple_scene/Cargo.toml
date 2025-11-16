@@ -1,14 +1,6 @@
 [package]
-name = "bevy_sdf_klown"
-version = "0.1.2"
+name = "simple_scene"
 edition = "2024"
-authors = ["Audrick Yeu <audrickyeu@proton.me>"]
-description = "General Pupose sdf plugin for bevy"
-license = "MIT OR Apache-2.0"
-repository = "https://github.com/klownie/bevy_sdf_klown"
-readme = "README.md"
-keywords = ["bevy", "sdf", "graphics", "ray_marching"]
-categories = ["graphics", "rendering", "games"]
 
 [features]
 skein = []
@@ -35,5 +27,9 @@ bevy = { version = "0.17.2", default-features = false, features = [
     "multi_threaded",
     "wayland"
 ]}
+bevy_sdf_klown = { path = "../../"}
+bevy_egui = "0.38"
+bevy-inspector-egui = "0.35"
+bevy_panorbit_camera = "0.33"
 
-log = { version = "0.4", features = ["max_level_debug", "release_max_level_warn"] }
+

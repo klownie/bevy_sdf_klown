@@ -1,3 +1,5 @@
+use std::borrow::Cow;
+
 use bevy::{
     pbr::{GpuClusterableObjectsStorage, GpuLights},
     prelude::*,
@@ -12,7 +14,7 @@ use bevy::{
             },
         },
         renderer::RenderDevice,
-        view::ViewUniform,
+        view::{ViewTarget, ViewUniform},
     },
 };
 
@@ -55,10 +57,10 @@ impl FromWorld for RayMarchEnginePipeline {
             &BindGroupLayoutEntries::sequential(
                 ShaderStages::COMPUTE,
                 (
-                    // texture_storage_2d(
-                    //     ViewTarget::TEXTURE_FORMAT_HDR,
-                    //     StorageTextureAccess::WriteOnly,
-                    // ),
+                    texture_storage_2d(
+                        ViewTarget::TEXTURE_FORMAT_HDR,
+                        StorageTextureAccess::WriteOnly,
+                    ),
                     texture_depth_2d(),
                     uniform_buffer::<RayMarchCamera>(true),
                 ),
@@ -85,12 +87,9 @@ impl FromWorld for RayMarchEnginePipeline {
                 (
                     texture_storage_2d(TextureFormat::R16Float, StorageTextureAccess::WriteOnly),
                     texture_storage_2d(TextureFormat::Rgba16Float, StorageTextureAccess::WriteOnly),
-                    texture_storage_2d(TextureFormat::Rgba16Float, StorageTextureAccess::WriteOnly),
-                    texture_storage_2d(TextureFormat::R16Float, StorageTextureAccess::WriteOnly),
                     texture_storage_2d(TextureFormat::R16Float, StorageTextureAccess::ReadWrite),
                     texture_storage_2d(TextureFormat::Rgba16Float, StorageTextureAccess::ReadWrite),
                     texture_storage_2d(TextureFormat::Rgba16Float, StorageTextureAccess::ReadWrite),
-                    texture_storage_2d(TextureFormat::R16Float, StorageTextureAccess::ReadWrite),
                 ),
             ),
         );
@@ -105,7 +104,7 @@ impl FromWorld for RayMarchEnginePipeline {
             ],
             shader: RAY_MARCH_MAIN_PASS_HANDLE,
             shader_defs: vec![],
-            entry_point: "init".into(),
+            entry_point: Some(Cow::from("init")),
             push_constant_ranges: vec![],
             zero_initialize_workgroup_memory: false,
         });
@@ -120,7 +119,7 @@ impl FromWorld for RayMarchEnginePipeline {
             ],
             shader: RAY_MARCH_MAIN_PASS_HANDLE,
             shader_defs: vec![],
-            entry_point: "scale".into(),
+            entry_point: Some(Cow::from("scale")),
             push_constant_ranges: vec![],
             zero_initialize_workgroup_memory: false,
         });

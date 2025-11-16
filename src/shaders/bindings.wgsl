@@ -7,8 +7,8 @@
     SdMod
 }
 
-// @group(1) @binding(0) var screen_texture: texture_storage_2d<rgba16float, write>;
-@group(1) @binding(0) var depth_texture: texture_depth_2d;
+@group(1) @binding(0) var screen_texture: texture_storage_2d<rgba16float, write>;
+@group(1) @binding(1) var depth_texture: texture_depth_2d;
 struct RayMarchCamera {
     depth_scale: f32,
     eps: f32,
@@ -21,7 +21,7 @@ struct RayMarchCamera {
     shadow_softness: f32,
     normal_eps: f32
 }
-@group(1) @binding(1) var<uniform> settings: RayMarchCamera;
+@group(1) @binding(2) var<uniform> settings: RayMarchCamera;
 
 // PERF: seperate the sd_object buffer into multiple buffers for more performance
 @group(2) @binding(0) var<storage, read> sd_object: array<SdObjectPacked>;
@@ -31,9 +31,6 @@ struct RayMarchCamera {
 
 @group(3) @binding(0) var depth_prepass: texture_storage_2d<r16float, write>;
 @group(3) @binding(1) var normal_prepass: texture_storage_2d<rgba16float, write>;
-@group(3) @binding(2) var material_prepass: texture_storage_2d<rgba16float, write>;
-@group(3) @binding(3) var mask_prepass: texture_storage_2d<r16float, write>;
-@group(3) @binding(4) var scaled_depth_prepass: texture_storage_2d<r16float, read_write>;
-@group(3) @binding(5) var scaled_normal_prepass: texture_storage_2d<rgba16float, read_write>;
-@group(3) @binding(6) var scaled_material_prepass: texture_storage_2d<rgba16float, read_write>;
-@group(3) @binding(7) var scaled_mask_prepass: texture_storage_2d<r16float, read_write>;
+@group(3) @binding(2) var scaled_depth_prepass: texture_storage_2d<r16float, read_write>;
+@group(3) @binding(3) var scaled_normal_prepass: texture_storage_2d<rgba16float, read_write>;
+@group(3) @binding(4) var scaled_material_prepass: texture_storage_2d<rgba16float, read_write>;

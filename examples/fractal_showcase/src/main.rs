@@ -1,5 +1,7 @@
-use bevy::core_pipeline::prepass::DepthPrepass;
 use bevy::prelude::*;
+use bevy::render::render_resource::TextureUsages;
+use bevy::render::view::Hdr;
+use bevy::{camera::CameraMainTextureUsages, core_pipeline::prepass::DepthPrepass};
 use bevy_egui::EguiPlugin;
 use bevy_inspector_egui::quick::WorldInspectorPlugin;
 use bevy_panorbit_camera::{PanOrbitCamera, PanOrbitCameraPlugin};
@@ -16,9 +18,7 @@ fn main() {
         .add_plugins((
             DefaultPlugins,
             RayMarchingPlugin,
-            EguiPlugin {
-                enable_multipass_for_primary_context: true,
-            },
+            EguiPlugin::default(),
             WorldInspectorPlugin::new(),
             PanOrbitCameraPlugin,
         ))
@@ -108,10 +108,11 @@ fn setup(mut commands: Commands) {
         },
         Camera3d::default(),
         Camera {
-            hdr: false,
             msaa_writeback: false,
             ..default()
         },
+        Hdr,
+        CameraMainTextureUsages::default().with(TextureUsages::STORAGE_BINDING),
         PanOrbitCamera::default(),
         Msaa::Off,
         DepthPrepass::default(),
