@@ -95,7 +95,7 @@ fn setup(
         ],
     ));
 
-    // Poly Scene
+    // Polygonal Scene
     commands.spawn((
         Mesh3d(meshes.add(Cuboid::new(1.0, 1.0, 1.0))),
         MeshMaterial3d(materials.add(Color::srgb_u8(124, 144, 255))),

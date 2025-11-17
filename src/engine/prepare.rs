@@ -257,6 +257,7 @@ pub fn prepare_raymarch_buffer(
     material_as: Res<Assets<StandardMaterial>>,
 ) {
     let nb_shapes = sdf_object_query.iter().len() as u16;
+
     let mut current_shape_index = 0;
     let mut current_op_index = 0;
     let mut current_mod_index = 0;

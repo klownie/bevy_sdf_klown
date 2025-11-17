@@ -3,6 +3,7 @@ use bevy::prelude::*;
 use bevy::render::extract_resource::ExtractResourcePlugin;
 use bevy::render::render_graph::RenderLabel;
 use bevy::render::{Render, RenderSystems};
+use bevy::shader::load_shader_library;
 use bevy::{
     core_pipeline::core_3d::graph::{Core3d, Node3d},
     render::{
@@ -42,12 +43,6 @@ pub mod prepass;
 
 const RAY_MARCH_MAIN_PASS_HANDLE: Handle<Shader> =
     uuid_handle!("ca4a5dbf-4da9-4779-bcdc-dd3186088e08");
-const RAY_MARCH_BINDINGS_HANDLE: Handle<Shader> =
-    uuid_handle!("33e9f2a9-9179-4fe3-b64b-8bb36cdcd3e3");
-const RAY_MARCH_UTILS_HANDLE: Handle<Shader> = uuid_handle!("0a9451d0-4b19-453b-98bc-ec755845d8f3");
-const RAY_MARCH_TYPES_HANDLE: Handle<Shader> = uuid_handle!("689f31b3-bdf6-4770-b18a-3979d671045c");
-const RAY_MARCH_SELECTORS_HANDLE: Handle<Shader> =
-    uuid_handle!("47df8567-7cf9-49a2-8939-0e81c2aa2f93");
 
 const WORKGROUP_SIZE: u32 = 8;
 
@@ -62,33 +57,10 @@ impl Plugin for RayMarchEnginePlugin {
             Shader::from_wgsl
         );
 
-        load_internal_asset!(
-            app,
-            RAY_MARCH_BINDINGS_HANDLE,
-            "../shaders/bindings.wgsl",
-            Shader::from_wgsl
-        );
-
-        load_internal_asset!(
-            app,
-            RAY_MARCH_UTILS_HANDLE,
-            "../shaders/utils.wgsl",
-            Shader::from_wgsl
-        );
-
-        load_internal_asset!(
-            app,
-            RAY_MARCH_TYPES_HANDLE,
-            "../shaders/types.wgsl",
-            Shader::from_wgsl
-        );
-
-        load_internal_asset!(
-            app,
-            RAY_MARCH_SELECTORS_HANDLE,
-            "../shaders/selectors.wgsl",
-            Shader::from_wgsl
-        );
+        load_shader_library!(app, "../shaders/bindings.wgsl");
+        load_shader_library!(app, "../shaders/utils.wgsl");
+        load_shader_library!(app, "../shaders/types.wgsl");
+        load_shader_library!(app, "../shaders/selectors.wgsl");
 
         app.add_systems(
             Update,
@@ -128,11 +100,8 @@ impl Plugin for RayMarchEnginePlugin {
                                                                                           // .run_if(not(resource_exists::<RayMarchEngineBindGroup>)),
                 ),
             )
-            .add_render_graph_node::<ViewNodeRunner<RayMarchEngineNode>>(
-                Core3d,
-                RayMarchPass::RayMarchPass,
-            )
-            .add_render_graph_edges(Core3d, (Node3d::EndMainPass, RayMarchPass::RayMarchPass));
+            .add_render_graph_node::<ViewNodeRunner<RayMarchEngineNode>>(Core3d, RayMarchPass)
+            .add_render_graph_edges(Core3d, (Node3d::EndMainPass, RayMarchPass));
     }
 
     fn finish(&self, app: &mut App) {
@@ -144,9 +113,7 @@ impl Plugin for RayMarchEnginePlugin {
 }
 
 #[derive(Debug, Hash, PartialEq, Eq, Clone, RenderLabel)]
-pub enum RayMarchPass {
-    RayMarchPass,
-}
+pub struct RayMarchPass;
 
 fn ray_march_operator_buffer_needs_update(
     check_op_query: Query<

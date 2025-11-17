@@ -1,5 +1,10 @@
 use bevy::{prelude::*, render::extract_component::ExtractComponent};
 
+#[cfg(feature = "skein")]
+use crate::engine::op::SdBlend;
+#[cfg(feature = "skein")]
+use bevy::ecs::{lifecycle::HookContext, world::DeferredWorld};
+
 #[derive(Component, Clone, ExtractComponent)]
 #[relationship(relationship_target = SdOperatingOn)]
 pub struct SdOperatedBy(pub Entity);

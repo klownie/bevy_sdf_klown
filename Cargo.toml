@@ -1,6 +1,6 @@
 [package]
 name = "bevy_sdf_klown"
-version = "0.1.2"
+version = "0.2.0"
 edition = "2024"
 authors = ["Audrick Yeu <audrickyeu@proton.me>"]
 description = "General Pupose sdf plugin for bevy"
@@ -35,5 +35,4 @@ bevy = { version = "0.17.2", default-features = false, features = [
     "multi_threaded",
     "wayland"
 ]}
-
 log = { version = "0.4", features = ["max_level_debug", "release_max_level_warn"] }
