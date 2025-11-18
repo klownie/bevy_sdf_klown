@@ -52,6 +52,10 @@ impl ViewNode for RayMarchEngineNode {
         ): QueryItem<Self::ViewQuery>,
         world: &World,
     ) -> Result<(), NodeRunError> {
+        if !world.contains_resource::<RayMarchEngineBindGroup>() {
+            return Ok(());
+        }
+
         let pipeline_cache = world.resource::<PipelineCache>();
         let ray_march_pipeline = world.resource::<RayMarchEnginePipeline>();
         let bind_group = world.resource::<RayMarchEngineBindGroup>();

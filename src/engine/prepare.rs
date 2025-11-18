@@ -166,10 +166,10 @@ pub fn prepare_raymarch_textures(
 
 pub fn prepare_raymarch_bind_group(
     mut commands: Commands,
+    device: Res<RenderDevice>,
     query: Query<(&ViewTarget, &ViewPrepassTextures, &RayMarchPrepass), With<RayMarchCamera>>,
     ray_march_pipeline: Res<RayMarchEnginePipeline>,
-    device: Res<RenderDevice>,
-    raymarch_buffer: Res<RayMarchBuffer>,
+    raymarch_buffer: Option<Res<RayMarchBuffer>>,
     settings_uniforms: Res<ComponentUniforms<RayMarchCamera>>,
     view_uniforms: Res<ViewUniforms>,
     light_meta: Res<LightMeta>,
@@ -184,6 +184,10 @@ pub fn prepare_raymarch_bind_group(
         light_meta.view_gpu_lights.binding(),
         clusterables.gpu_clusterable_objects.binding(),
     ) else {
+        return;
+    };
+
+    let Some(march_buffer) = raymarch_buffer else {
         return;
     };
 
@@ -213,9 +217,9 @@ pub fn prepare_raymarch_bind_group(
         "marcher_storage_bind_group",
         &ray_march_pipeline.storage_layout,
         &BindGroupEntries::sequential((
-            raymarch_buffer.object.as_entire_buffer_binding(),
-            raymarch_buffer.operator.as_entire_buffer_binding(),
-            raymarch_buffer.modifier.as_entire_buffer_binding(),
+            march_buffer.object.as_entire_buffer_binding(),
+            march_buffer.operator.as_entire_buffer_binding(),
+            march_buffer.modifier.as_entire_buffer_binding(),
         )),
     );
 
@@ -334,9 +338,15 @@ pub fn prepare_raymarch_buffer(
     sd_op_buffer.write_buffer(&device, &queue);
     sd_mod_buffer.write_buffer(&device, &queue);
 
-    commands.insert_resource(RayMarchBuffer {
-        object: sd_object_buffer.buffer().unwrap().clone(),
-        operator: sd_op_buffer.buffer().unwrap().clone(),
-        modifier: sd_mod_buffer.buffer().unwrap().clone(),
-    });
+    if let (Some(object_buf), Some(operator_buf), Some(modifier_buf)) = (
+        sd_object_buffer.buffer(),
+        sd_op_buffer.buffer(),
+        sd_mod_buffer.buffer(),
+    ) {
+        commands.insert_resource(RayMarchBuffer {
+            object: object_buf.clone(),
+            operator: operator_buf.clone(),
+            modifier: modifier_buf.clone(),
+        });
+    }
 }
