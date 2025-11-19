@@ -1,6 +1,6 @@
 [package]
 name = "bevy_sdf_klown"
-version = "0.2.0"
+version = "0.2.3"
 edition = "2024"
 authors = ["Audrick Yeu <audrickyeu@proton.me>"]
 description = "General Pupose sdf plugin for bevy"
@@ -14,7 +14,7 @@ categories = ["graphics", "rendering", "games"]
 skein = []
 
 [dependencies]
-bevy = { version = "0.17.2", default-features = false, features = [
+bevy = { version = "0.17.3", default-features = false, features = [
     "bevy_asset",
     "zstd_rust",
     "bevy_color",
