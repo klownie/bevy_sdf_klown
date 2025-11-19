@@ -1,8 +1,7 @@
-use crate::engine::hierarchy::{SdOperatedBy, SdOperatingOn};
+use crate::engine::hierarchy::SdOperatedBy;
 use bevy::ecs::lifecycle::HookContext;
 use bevy::ecs::world::DeferredWorld;
 use bevy::prelude::*;
-use bevy::render::extract_component::ExtractComponent;
 use bevy::render::render_resource::ShaderType;
 
 #[derive(Reflect, Debug, Clone, Copy)]
@@ -36,8 +35,7 @@ pub struct SdBlendUniform {
 }
 
 #[repr(u32)]
-#[derive(Reflect, Component, Debug, Clone, Copy, Default, ExtractComponent)]
-#[extract_component_filter(With<SdOperatingOn>)]
+#[derive(Reflect, Component, Debug, Clone, Copy, Default)]
 #[require(Name::new("SdOp"), SdIndex)]
 #[reflect(Component)]
 pub enum SdBlend {
@@ -95,20 +93,7 @@ impl SdBlend {
     }
 }
 
-#[derive(
-    Reflect,
-    Component,
-    Ord,
-    PartialOrd,
-    PartialEq,
-    Eq,
-    Default,
-    Debug,
-    Clone,
-    Copy,
-    ExtractComponent,
-)]
-#[extract_component_filter(With<SdOperatingOn>)]
+#[derive(Reflect, Component, Ord, PartialOrd, PartialEq, Eq, Default, Debug, Clone, Copy)]
 #[component(on_add = update_sd_index)]
 #[reflect(Component)]
 pub struct SdIndex(pub u32);

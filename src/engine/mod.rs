@@ -2,7 +2,7 @@ use bevy::asset::{load_internal_asset, uuid_handle};
 use bevy::prelude::*;
 use bevy::render::extract_resource::ExtractResourcePlugin;
 use bevy::render::render_graph::RenderLabel;
-use bevy::render::{Render, RenderSystems};
+use bevy::render::{Render, RenderStartup, RenderSystems};
 use bevy::shader::load_shader_library;
 use bevy::{
     core_pipeline::core_3d::graph::{Core3d, Node3d},
@@ -17,11 +17,12 @@ use hierarchy::{SdOperatedBy, SdOperatingOn};
 use nodes::RayMarchEngineNode;
 use object::{SdMaterial, SdMod, SdShape};
 use op::SdBlend;
-use pipeline::RayMarchEnginePipeline;
 
 use crate::engine::buffer::RayMarchBuffer;
+use crate::engine::nodes::RayMarchEngineBindGroup;
 use crate::engine::object::SdModStack;
 use crate::engine::op::SdIndex;
+use crate::engine::pipeline::init_raymarch_engine_pipeline;
 use crate::engine::prepare::{
     prepare_raymarch_bind_group, prepare_raymarch_buffer, prepare_raymarch_textures,
 };
@@ -92,23 +93,23 @@ impl Plugin for RayMarchEnginePlugin {
         };
 
         render_app
+            .add_systems(RenderStartup, init_raymarch_engine_pipeline)
             .add_systems(
                 Render,
                 (
-                    prepare_raymarch_textures.in_set(RenderSystems::PrepareResources),
-                    prepare_raymarch_bind_group.in_set(RenderSystems::PrepareBindGroups), // .run_if(resource_changed::<ClearColor>),
-                                                                                          // .run_if(not(resource_exists::<RayMarchEngineBindGroup>)),
+                    prepare_raymarch_textures
+                        .in_set(RenderSystems::PrepareAssets)
+                        .run_if(
+                            resource_exists::<RayMarchEngineBindGroup>
+                                .or(resource_changed::<RayMarchBuffer>),
+                        ),
+                    prepare_raymarch_bind_group
+                        .in_set(RenderSystems::PrepareBindGroups)
+                        .run_if(resource_changed::<RayMarchBuffer>),
                 ),
             )
             .add_render_graph_node::<ViewNodeRunner<RayMarchEngineNode>>(Core3d, RayMarchPass)
             .add_render_graph_edges(Core3d, (Node3d::EndMainPass, RayMarchPass));
-    }
-
-    fn finish(&self, app: &mut App) {
-        let Some(render_app) = app.get_sub_app_mut(RenderApp) else {
-            return;
-        };
-        render_app.init_resource::<RayMarchEnginePipeline>();
     }
 }
 

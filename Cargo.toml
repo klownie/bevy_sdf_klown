@@ -20,19 +20,13 @@ bevy = { version = "0.17.2", default-features = false, features = [
     "bevy_color",
     "reflect_auto_register",
     "bevy_core_pipeline",
-    "bevy_gltf",
     "bevy_pbr",
     "bevy_render",
-    "bevy_text",
     "bevy_log",
-    "bevy_ui",
     "bevy_window",
     "bevy_winit",
     "bevy_shader",
-    "default_font",
     "hdr",
-    "tonemapping_luts",
     "multi_threaded",
-    "wayland"
 ]}
 log = { version = "0.4", features = ["max_level_debug", "release_max_level_warn"] }

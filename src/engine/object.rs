@@ -1,7 +1,6 @@
-use bevy::{prelude::*, render::extract_component::ExtractComponent};
+use bevy::prelude::*;
 use std::mem::transmute;
 
-use crate::engine::hierarchy::SdOperatedBy;
 use bevy::render::render_resource::ShaderType;
 
 #[derive(ShaderType, Clone, Copy)]
@@ -38,8 +37,7 @@ pub struct SdShapeUniform {
 }
 
 #[repr(u32)]
-#[derive(Reflect, Component, Debug, Copy, Clone, ExtractComponent)]
-#[extract_component_filter(With<SdOperatedBy>)]
+#[derive(Reflect, Component, Debug, Copy, Clone)]
 #[require(Name::new("SdObject"), SdModStack, Transform, GlobalTransform)]
 #[reflect(Component)]
 pub enum SdShape {
@@ -236,8 +234,7 @@ impl SdMod {
     }
 }
 
-#[derive(Reflect, Component, Default, Debug, Clone, ExtractComponent)]
-#[extract_component_filter(With<SdOperatedBy>)]
+#[derive(Reflect, Component, Default, Debug, Clone)]
 #[reflect(Component, Default)]
 pub struct SdModStack {
     pub modifiers: Vec<SdMod>,
@@ -267,8 +264,7 @@ pub struct SdMaterialUniform {
     pub sss_strength_radius: u32,
 }
 
-#[derive(Component, Reflect, Debug, Clone, Copy, ExtractComponent)]
-#[extract_component_filter(With<SdOperatedBy>)]
+#[derive(Component, Reflect, Debug, Clone, Copy)]
 #[reflect(Component, Default)]
 pub struct SdMaterial {
     pub color: Vec4,
