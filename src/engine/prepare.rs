@@ -28,7 +28,7 @@ use crate::engine::{
     prepass::RayMarchPrepass,
 };
 
-pub fn prepare_raymarch_textures(
+pub(crate) fn prepare_raymarch_textures(
     query: Query<(Entity, &ExtractedCamera, Option<&RayMarchPrepass>), With<RayMarchCamera>>,
     render_device: Res<RenderDevice>,
     mut commands: Commands,
@@ -164,7 +164,7 @@ pub fn prepare_raymarch_textures(
     }
 }
 
-pub fn prepare_raymarch_bind_group(
+pub(crate) fn prepare_raymarch_bind_group(
     mut commands: Commands,
     device: Res<RenderDevice>,
     query: Query<(&ViewTarget, &ViewPrepassTextures, &RayMarchPrepass), With<RayMarchCamera>>,
@@ -243,7 +243,7 @@ pub fn prepare_raymarch_bind_group(
     });
 }
 
-pub fn prepare_raymarch_buffer(
+pub(crate) fn prepare_raymarch_buffer(
     mut commands: Commands,
     device: Res<RenderDevice>,
     queue: Res<RenderQueue>,

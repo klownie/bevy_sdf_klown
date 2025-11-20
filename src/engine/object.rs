@@ -1,7 +1,6 @@
 use bevy::prelude::*;
-use std::mem::transmute;
-
 use bevy::render::render_resource::ShaderType;
+use std::mem::transmute;
 
 #[derive(ShaderType, Clone, Copy)]
 pub struct SdObjectUniform {
@@ -32,7 +31,7 @@ impl SdObject {
 
 #[derive(ShaderType, Clone, Copy)]
 pub struct SdShapeUniform {
-    pub id: u32,
+    pub type_id: u32,
     pub data: Mat3,
 }
 
@@ -190,7 +189,7 @@ impl SdShape {
 
 #[derive(ShaderType, Default, Clone, Debug, Copy)]
 pub struct SdModUniform {
-    pub id: u32,
+    pub type_id: u32,
     pub data: Vec4,
 }
 
@@ -228,7 +227,7 @@ impl SdMod {
         let bytes: [u32; 5] = unsafe { transmute(self) };
         let pack: Vec4 = unsafe { transmute([bytes[1], bytes[2], bytes[3], bytes[4]]) };
         SdModUniform {
-            id: bytes[0],
+            type_id: bytes[0],
             data: pack,
         }
     }
@@ -242,7 +241,7 @@ pub struct SdModStack {
 
 #[derive(ShaderType, Clone, Copy)]
 pub struct SdModStackUniform {
-    pub start_index_and_lenght: u32,
+    pub data_index_and_lenght: u32,
 }
 
 impl SdModStack {
@@ -252,7 +251,7 @@ impl SdModStack {
         let len = self.modifiers.len() as u16 as u32;
 
         SdModStackUniform {
-            start_index_and_lenght: (start << 16) | len,
+            data_index_and_lenght: (start << 16) | len,
         }
     }
 }

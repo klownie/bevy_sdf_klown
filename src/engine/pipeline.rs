@@ -30,7 +30,7 @@ pub struct RayMarchEnginePipeline {
     pub scale_pipeline: CachedComputePipelineId,
 }
 
-pub fn init_raymarch_engine_pipeline(
+pub(crate) fn init_raymarch_engine_pipeline(
     mut commands: Commands,
     render_device: Res<RenderDevice>,
     pipeline_cache: Res<PipelineCache>,
@@ -41,9 +41,7 @@ pub fn init_raymarch_engine_pipeline(
             ShaderStages::COMPUTE,
             (
                 (0, uniform_buffer::<ViewUniform>(true)),
-                // Directional Lights
                 (1, uniform_buffer::<GpuLights>(true)),
-                // Spotlights
                 (
                     8,
                     storage_buffer_read_only::<GpuClusterableObjectsStorage>(false),
@@ -103,10 +101,8 @@ pub fn init_raymarch_engine_pipeline(
             prepass_layout.clone(),
         ],
         shader: RAY_MARCH_MAIN_PASS_HANDLE,
-        shader_defs: vec![],
         entry_point: Some(Cow::from("init")),
-        push_constant_ranges: vec![],
-        zero_initialize_workgroup_memory: false,
+        ..default()
     });
 
     let scale_pipeline = pipeline_cache.queue_compute_pipeline(ComputePipelineDescriptor {
@@ -118,10 +114,8 @@ pub fn init_raymarch_engine_pipeline(
             prepass_layout.clone(),
         ],
         shader: RAY_MARCH_MAIN_PASS_HANDLE,
-        shader_defs: vec![],
         entry_point: Some(Cow::from("scale")),
-        push_constant_ranges: vec![],
-        zero_initialize_workgroup_memory: false,
+        ..default()
     });
 
     commands.insert_resource(RayMarchEnginePipeline {

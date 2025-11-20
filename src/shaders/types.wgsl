@@ -24,7 +24,7 @@ fn unpack_sd_object(packed: SdObjectPacked) -> SdObject {
 }
 
 struct SdShape {
-    id: u32,
+    type_id: u32,
     data: mat3x3f,
 }
 
@@ -68,7 +68,7 @@ fn pack_sd_material(material: SdMaterial) -> SdMaterialPacked {
 }
 
 struct SdMod {
-    id: u32,
+    type_id: u32,
     data: vec4f,
 }
 
@@ -78,12 +78,12 @@ struct SdModStack {
 }
 
 struct SdModStackPacked {
-    start_index_and_length: u32,
+    data_index_and_length: u32,
 }
 
 fn unpack_sd_mod_stack(packed: SdModStackPacked) -> SdModStack {
-    let start_index = packed.start_index_and_length >> 16u;
-    let len = packed.start_index_and_length & 0xFFFFu;
+    let start_index = packed.data_index_and_length >> 16u;
+    let len = packed.data_index_and_length & 0xFFFFu;
 
     return SdModStack(
         start_index,
@@ -117,20 +117,20 @@ fn unpack_sd_operator(packed: SdOperatorPacked) -> SdOperator {
 }
 
 struct SdBlend {
-    id: u32,
+    type_id: u32,
     rev: bool,
     data: vec2f,
 }
 
 struct SdBlendPacked {
-    id_data: u32
+    type_id_data: u32
 }
 
 fn unpack_sd_blend(packed: SdBlendPacked) -> SdBlend {
-    let id = packed.id_data & 0x000000FFu;               // bits 0..7
-    let rev = (packed.id_data >> 8) & 0x000000FFu;       // bits 8..15
+    let id = packed.type_id_data & 0x000000FFu;               // bits 0..7
+    let rev = (packed.type_id_data >> 8) & 0x000000FFu;       // bits 8..15
 
-    let data_approx = f32((packed.id_data >> 16) & 0x0000FFFFu) / 255.0;
+    let data_approx = f32((packed.type_id_data >> 16) & 0x0000FFFFu) / 255.0;
     return SdBlend(id, bool(rev), vec2f(data_approx, 0.0)); // second float unused here
 }
 

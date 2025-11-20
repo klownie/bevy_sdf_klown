@@ -35,7 +35,7 @@ fn select_shape(p: vec3f, shape: SdShape, transform: SdTransform, modifiers: SdM
     for (var i = 0u; i < modifiers.len; i++) {
         pos = apply_mod(pos, sd_mod[modifiers.start_index + i ]);
     }
-    switch shape.id {
+    switch shape.type_id {
         case 0u, default {
             return sdSphere(pos, shape_data[0].x);
         }
@@ -142,7 +142,7 @@ fn select_shape(p: vec3f, shape: SdShape, transform: SdTransform, modifiers: SdM
 }
  
 fn apply_mod(p: vec3f, modifier: SdMod) -> vec3f {
-    switch modifier.id {
+    switch modifier.type_id {
         case 0u {
             return p - modifier.data.xyz;
         }
@@ -206,7 +206,7 @@ fn apply_transform(p: vec3f, transform: SdTransform) -> vec3f {
 }
 
 fn select_blend(op: SdBlend, d1: f32, d2: f32) -> vec2f {
-    switch op.id {
+    switch op.type_id {
         case 0u, default {
             return opUnion(d1, d2);
         }

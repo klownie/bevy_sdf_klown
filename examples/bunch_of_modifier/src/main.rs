@@ -22,6 +22,15 @@ fn main() {
             WorldInspectorPlugin::new(),
             PanOrbitCameraPlugin,
         ))
+        .insert_resource(AmbientLight {
+            color: Color::LinearRgba(LinearRgba {
+                red: 0.6,
+                green: 0.08,
+                blue: 0.5,
+                alpha: 0.0,
+            }),
+            ..default()
+        })
         .add_systems(Startup, setup)
         .add_systems(Update, animate_twist_modifier)
         .run();
@@ -32,17 +41,18 @@ fn setup(mut commands: Commands) {
         SdBlend::SmoothUnion { k: 1.5 },
         op_patients![
             (
-                SdShape::BoxFrame {
-                    bounds: Vec3::new(10.0, 5.0, 10.0),
-                    edge: 1.0,
+                SdShape::RoundBox {
+                    bounds: Vec3::new(10.0, 5.0, 5.0),
+                    radius: 1.0,
                 },
                 SdModStack {
                     modifiers: vec![
                         SdMod::InfArray {
-                            c: Vec3::new(20.0, 20.0, 12.0)
+                            c: Vec3::new(14.0, 40.0, 9.0)
                         },
+                        SdMod::RotateY { a: 0.8 },
                         SdMod::Twist { k: 0.1 },
-                        SdMod::SymetryX
+                        SdMod::CheapBend { k: 0.01 }
                     ]
                 },
                 AnimateTwitModifier,
@@ -83,18 +93,7 @@ fn setup(mut commands: Commands) {
             shadows_enabled: true,
             ..default()
         },
-        Transform::from_xyz(10.0, 15.0, 10.0).looking_at(Vec3::ZERO, Vec3::Y),
-    ));
-
-    commands.spawn((
-        PointLight {
-            intensity: 5000000.0,
-            color: Color::LinearRgba(LinearRgba::new(0.5, 0.5, 1.0, 1.0)),
-            range: 1000.0,
-            shadows_enabled: true,
-            ..default()
-        },
-        Transform::from_xyz(0.0, 15.0, -10.0).looking_at(Vec3::ZERO, Vec3::Y),
+        Transform::from_xyz(10.0, 10.0, 10.0).looking_at(Vec3::ZERO, Vec3::Y),
     ));
 
     // Camera
@@ -130,7 +129,7 @@ fn animate_twist_modifier(
                 let eas_func = EaseFunction::SmootherStep;
                 *k = eas_func.sample_unchecked(time.elapsed_secs().sin().abs())
                     * time.elapsed_secs_wrapped().sin().signum()
-                    / 30.0;
+                    / 50.0;
             }
         }
     }

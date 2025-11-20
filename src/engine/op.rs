@@ -31,7 +31,7 @@ impl SdOperator {
 
 #[derive(ShaderType, Clone, Copy)]
 pub struct SdBlendUniform {
-    pub id_data: u32,
+    pub type_id_data: u32,
 }
 
 #[repr(u32)]
@@ -89,7 +89,9 @@ impl SdBlend {
 
         let id_data = (disc as u32) | ((rev as u32) << 8) | ((extra as u32) << 16);
 
-        SdBlendUniform { id_data }
+        SdBlendUniform {
+            type_id_data: id_data,
+        }
     }
 }
 

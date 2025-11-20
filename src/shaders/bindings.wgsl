@@ -27,7 +27,7 @@ struct RayMarchCamera {
 @group(2) @binding(0) var<storage, read> sd_object: array<SdObjectPacked>;
 @group(2) @binding(1) var<storage, read> sd_ops: array<SdOperatorPacked>;
 @group(2) @binding(2) var<storage, read> sd_mod: array<SdMod>;
-//@group(2) @binding(2) var<storage, read> sd_data: array<f32>;
+//@group(2) @binding(3) var<storage, read> sd_data: array<f32>;
 
 @group(3) @binding(0) var depth_prepass: texture_storage_2d<r16float, write>;
 @group(3) @binding(1) var normal_prepass: texture_storage_2d<rgba16float, write>;

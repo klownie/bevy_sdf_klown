@@ -19,7 +19,6 @@ use object::{SdMaterial, SdMod, SdShape};
 use op::SdBlend;
 
 use crate::engine::buffer::RayMarchBuffer;
-use crate::engine::nodes::RayMarchEngineBindGroup;
 use crate::engine::object::SdModStack;
 use crate::engine::op::SdIndex;
 use crate::engine::pipeline::init_raymarch_engine_pipeline;
@@ -97,15 +96,12 @@ impl Plugin for RayMarchEnginePlugin {
             .add_systems(
                 Render,
                 (
-                    prepare_raymarch_textures
-                        .in_set(RenderSystems::PrepareAssets)
-                        .run_if(
-                            resource_exists::<RayMarchEngineBindGroup>
-                                .or(resource_changed::<RayMarchBuffer>),
-                        ),
-                    prepare_raymarch_bind_group
-                        .in_set(RenderSystems::PrepareBindGroups)
-                        .run_if(resource_changed::<RayMarchBuffer>),
+                    prepare_raymarch_textures.in_set(RenderSystems::PrepareAssets),
+                    // .run_if(
+                    //     resource_exists::<RayMarchEngineBindGroup>
+                    //         .or(resource_changed::<RayMarchBuffer>),
+                    // ),
+                    prepare_raymarch_bind_group.in_set(RenderSystems::PrepareBindGroups), // .run_if(resource_changed::<RayMarchBuffer>),
                 ),
             )
             .add_render_graph_node::<ViewNodeRunner<RayMarchEngineNode>>(Core3d, RayMarchPass)
