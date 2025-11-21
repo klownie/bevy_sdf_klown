@@ -1,5 +1,5 @@
 [package]
-name = "simple_scene"
+name = "bunch_of_modifiers"
 edition = "2024"
 
 [features]

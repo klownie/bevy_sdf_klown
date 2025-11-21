@@ -83,10 +83,8 @@ pub(crate) fn init_raymarch_engine_pipeline(
         &BindGroupLayoutEntries::sequential(
             ShaderStages::COMPUTE,
             (
-                texture_storage_2d(TextureFormat::R16Float, StorageTextureAccess::WriteOnly),
+                texture_storage_2d(TextureFormat::R32Float, StorageTextureAccess::ReadWrite),
                 texture_storage_2d(TextureFormat::Rgba16Float, StorageTextureAccess::WriteOnly),
-                texture_storage_2d(TextureFormat::R16Float, StorageTextureAccess::ReadWrite),
-                texture_storage_2d(TextureFormat::Rgba16Float, StorageTextureAccess::ReadWrite),
                 texture_storage_2d(TextureFormat::Rgba16Float, StorageTextureAccess::ReadWrite),
             ),
         ),

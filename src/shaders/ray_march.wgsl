@@ -4,6 +4,7 @@
 #import bevy_pbr::mesh_view_bindings::{view, lights, clusterable_objects}
 #import bevy_pbr::lighting::getDistanceAttenuation
 #import bevy_pbr::mesh_view_types::ClusterableObject
+#import bevy_render::view::position_world_to_ndc
 
 #import bevy_sdf::bindings::{
     screen_texture,
@@ -16,11 +17,7 @@
 
     depth_prepass,
     normal_prepass,
-    mask_prepass,
-
-    scaled_depth_prepass,
-    scaled_normal_prepass,
-    scaled_material_prepass,
+    material_prepass,
 };
 #import bevy_sdf::selectors::{select_shape, select_blend};
 #import bevy_sdf::types::{
@@ -257,13 +254,13 @@ fn apply_light_contribution(
 
     let ao = calc_ao(ro, normal);
 
-    let visibility = shadow(
-        ro + normal * settings.shadow_eps,
-        light_dir,
-        settings.shadow_eps,
-        min(dist, settings.shadow_max_distance),
-        settings.shadow_max_steps
-    );
+    // let visibility = shadow(
+    //     ro + normal * settings.shadow_eps,
+    //     light_dir,
+    //     settings.shadow_eps,
+    //     min(dist, settings.shadow_max_distance),
+    //     settings.shadow_max_steps
+    // );
 
     // let visibility = softshadow(
     //     ro + normal * settings.shadow_eps,
@@ -287,11 +284,11 @@ fn apply_light_contribution(
     let reflect_dir = reflect(-light_dir, normal);
     let spec = pow(max(dot(-rd, reflect_dir), 0.0), 64.0);
     let specular_strength = material.roughness;
-    let lighting = (diff + specular_strength * spec) * attenuation * visibility * ao;
+    let lighting = (diff + specular_strength * spec) * attenuation /*  visibility */ * ao;
 
     // === Combine ===
     let standard_contrib = mat_color * light_color * lighting;
-    let blended = mix(standard_contrib, sss_contrib * attenuation * visibility * ao, material.sss_strength);
+    let blended = mix(standard_contrib, sss_contrib * attenuation  /* visibility */ * ao, material.sss_strength);
     return blended;
 }
 
@@ -348,60 +345,42 @@ fn compute_sss(
 @compute @workgroup_size(8, 8, 1)
 fn init(@builtin(global_invocation_id) id: vec3u) {
 
-    let buffer_size = view.viewport.zw;
+    let buffer_size = view.viewport.zw * settings.depth_scale;
 
-    let frag_coord = vec2f(id.xy);
-    let uv = frag_coord / buffer_size;
+    var uv = vec2f(id.xy) / buffer_size;
+    uv = uv * 2.0 - 1.0;
+    uv.y *= -1.0 ;
 
-    var march_uv = uv * 2.0 - 1.0;
-    march_uv.y *= -1.0;
-    march_uv /= settings.depth_scale;
-
-    let downscaled_coord = (frag_coord - ((buffer_size / 2.0) * (1.0 - settings.depth_scale))) / settings.depth_scale ;
-
-    // prevent overdraw
-    if any(march_uv >= vec2(1.)) || any(march_uv <= vec2(-1.)) {
-        return;
-    }
-
-    let temp = view.world_from_clip * vec4f(march_uv, 1.0, 1.0);
+    let temp = view.world_from_clip * vec4f(uv, 1.0, 1.0);
     let ro = temp.xyz / temp.w;
     let rd = normalize(ro * view.world_from_clip[2].w - view.world_from_clip[2].xyz);
 
     let m = march(ro, rd);
 
     let material = apply_lighting(m.pos, rd, m.normal, m.material);
-
-    let p_clip = view.clip_from_world * vec4f(m.pos, 1.0);
-    let p_ndc = p_clip / p_clip.w;
+    
+    let p_ndc = position_world_to_ndc(m.pos, view.clip_from_world);
     let ray_depth = p_ndc.z;
 
     let depth = select(ray_depth, -1.0, m.depth > settings.max_distance);
 
-    textureStore(scaled_depth_prepass, id.xy, vec4f(ray_depth));
-    textureStore(scaled_normal_prepass, id.xy, vec4f(vec3f(m.normal * .5 + .5), 1.));
-    textureStore(scaled_material_prepass, id.xy, vec4f(vec3f(material), 1.));
+    textureStore(depth_prepass, id.xy, vec4f(depth));
+    textureStore(normal_prepass, id.xy, vec4f(vec3f(m.normal * .5 + .5), 1.));
+    textureStore(material_prepass, id.xy, vec4f(vec3f(material), 1.));
 }
 
 @compute @workgroup_size(8, 8, 1)
 fn scale(@builtin(global_invocation_id) id: vec3u) {
 
-    let buffer_size = view.viewport.zw;
-    let frag_coord = vec2f(id.xy);
-    let upscaled_coord = (frag_coord - (buffer_size * 0.5)) * settings.depth_scale + (buffer_size * 0.5);
+    let scaled_id = vec2u(vec2f(id.xy) * settings.depth_scale);
 
-
-    let depth_pass = textureLoad(scaled_depth_prepass, vec2u(upscaled_coord)).x;
+    let depth_pass = textureLoad(depth_prepass, scaled_id);
     let world_depth = textureLoad(depth_texture, id.xy, 0);
-    if depth_pass < world_depth {
+    let material_pass = textureLoad(material_prepass, scaled_id);
+
+    if depth_pass.x < world_depth {
         return;
     }
-
-    let normal_pass = textureLoad(scaled_normal_prepass, vec2u(upscaled_coord));
-    let material_pass = textureLoad(scaled_material_prepass, vec2u(upscaled_coord));
-
-
-    textureStore(depth_prepass, id.xy, vec4f(depth_pass));
-    textureStore(normal_prepass, id.xy, normal_pass);
+    
     textureStore(screen_texture, id.xy, material_pass);
 }

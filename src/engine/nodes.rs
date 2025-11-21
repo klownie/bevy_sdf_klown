@@ -45,7 +45,7 @@ impl ViewNode for RayMarchEngineNode {
         (
             _view_target,
             camera,
-            _ray_march_settings,
+            ray_march_settings,
             settings_index,
             view_uniform_offset,
             view_lights_uniform_offset,
@@ -93,8 +93,8 @@ impl ViewNode for RayMarchEngineNode {
 
         pass.set_pipeline(march_pipeline);
         pass.dispatch_workgroups(
-            viewport.x.div_ceil(WORKGROUP_SIZE),
-            viewport.y.div_ceil(WORKGROUP_SIZE),
+            ((viewport.x as f32 * ray_march_settings.depth_scale) as u32).div_ceil(WORKGROUP_SIZE),
+            ((viewport.y as f32 * ray_march_settings.depth_scale) as u32).div_ceil(WORKGROUP_SIZE),
             1,
         );
 

@@ -29,11 +29,16 @@ use crate::engine::{
 };
 
 pub(crate) fn prepare_raymarch_textures(
-    query: Query<(Entity, &ExtractedCamera, Option<&RayMarchPrepass>), With<RayMarchCamera>>,
+    query: Query<(
+        Entity,
+        &ExtractedCamera,
+        Option<&RayMarchPrepass>,
+        &RayMarchCamera,
+    )>,
     render_device: Res<RenderDevice>,
     mut commands: Commands,
 ) {
-    for (entity, camera, ray_march_resources) in &query {
+    for (entity, camera, ray_march_resources, ray_march_settings) in &query {
         let Some(view_size) = camera.physical_viewport_size else {
             continue;
         };
@@ -42,20 +47,20 @@ pub(crate) fn prepare_raymarch_textures(
             continue;
         }
 
-        let size = Extent3d {
-            width: view_size.x,
-            height: view_size.y,
+        let scaled_size = Extent3d {
+            width: (view_size.x as f32 * ray_march_settings.depth_scale) as u32,
+            height: (view_size.y as f32 * ray_march_settings.depth_scale) as u32,
             depth_or_array_layers: 1,
         };
 
         let depth = render_device
             .create_texture(&TextureDescriptor {
-                label: Some("raymarch_depth"),
-                size,
+                label: Some("raymarch_depth_texture"),
+                size: scaled_size,
                 mip_level_count: 1,
                 sample_count: 1,
                 dimension: TextureDimension::D2,
-                format: TextureFormat::R16Float,
+                format: TextureFormat::R32Float,
                 usage: TextureUsages::COPY_DST
                     | TextureUsages::STORAGE_BINDING
                     | TextureUsages::TEXTURE_BINDING,
@@ -71,8 +76,8 @@ pub(crate) fn prepare_raymarch_textures(
 
         let normal = render_device
             .create_texture(&TextureDescriptor {
-                label: Some("raymarch_normal"),
-                size,
+                label: Some("raymarch_normal_texture"),
+                size: scaled_size,
                 mip_level_count: 1,
                 sample_count: 1,
                 dimension: TextureDimension::D2,
@@ -90,31 +95,10 @@ pub(crate) fn prepare_raymarch_textures(
                 ..default()
             });
 
-        let scaled_depth = render_device
+        let output = render_device
             .create_texture(&TextureDescriptor {
-                label: Some("scaled_raymarch_depth"),
-                size,
-                mip_level_count: 1,
-                sample_count: 1,
-                dimension: TextureDimension::D2,
-                format: TextureFormat::R16Float,
-                usage: TextureUsages::COPY_DST
-                    | TextureUsages::STORAGE_BINDING
-                    | TextureUsages::TEXTURE_BINDING,
-                view_formats: &[],
-            })
-            .create_view(&TextureViewDescriptor {
-                label: Some("scaled_raymarch_depth_view"),
-                base_mip_level: 0,
-                aspect: TextureAspect::All,
-                base_array_layer: 0,
-                ..default()
-            });
-
-        let scaled_normal = render_device
-            .create_texture(&TextureDescriptor {
-                label: Some("scaled_raymarch_normal"),
-                size,
+                label: Some("raymarch_material_texture"),
+                size: scaled_size,
                 mip_level_count: 1,
                 sample_count: 1,
                 dimension: TextureDimension::D2,
@@ -125,28 +109,7 @@ pub(crate) fn prepare_raymarch_textures(
                 view_formats: &[],
             })
             .create_view(&TextureViewDescriptor {
-                label: Some("scaled_raymarch_normal_view"),
-                base_mip_level: 0,
-                aspect: TextureAspect::All,
-                base_array_layer: 0,
-                ..default()
-            });
-
-        let scaled_material = render_device
-            .create_texture(&TextureDescriptor {
-                label: Some("scaled_raymarch_material"),
-                size,
-                mip_level_count: 1,
-                sample_count: 1,
-                dimension: TextureDimension::D2,
-                format: TextureFormat::Rgba16Float,
-                usage: TextureUsages::COPY_DST
-                    | TextureUsages::STORAGE_BINDING
-                    | TextureUsages::TEXTURE_BINDING,
-                view_formats: &[],
-            })
-            .create_view(&TextureViewDescriptor {
-                label: Some("scaled_raymarch_material_view"),
+                label: Some("raymarch_material_view"),
                 base_mip_level: 0,
                 aspect: TextureAspect::All,
                 base_array_layer: 0,
@@ -156,9 +119,7 @@ pub(crate) fn prepare_raymarch_textures(
         commands.entity(entity).insert(RayMarchPrepass {
             depth,
             normal,
-            scaled_depth,
-            scaled_normal,
-            scaled_material,
+            output,
             view_size,
         });
     }
@@ -229,9 +190,7 @@ pub(crate) fn prepare_raymarch_bind_group(
         &BindGroupEntries::sequential((
             &raymarch_prepass.depth,
             &raymarch_prepass.normal,
-            &raymarch_prepass.scaled_depth,
-            &raymarch_prepass.scaled_normal,
-            &raymarch_prepass.scaled_material,
+            &raymarch_prepass.output,
         )),
     );
 

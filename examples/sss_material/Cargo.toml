@@ -1,5 +1,5 @@
 [package]
-name = "simple_scene"
+name = "sss_material"
 edition = "2024"
 
 [features]

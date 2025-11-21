@@ -99,7 +99,7 @@ fn setup(mut commands: Commands) {
     // Camera
     commands.spawn((
         RayMarchCamera {
-            depth_scale: 0.4,
+            depth_scale: 0.3,
             ..default()
         },
         Camera3d::default(),
