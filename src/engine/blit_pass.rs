@@ -7,12 +7,11 @@ use bevy::{
     render::{
         render_graph::{NodeRunError, RenderGraphContext, ViewNode},
         render_resource::{
-            BindGroupEntries, BindGroupLayout, BindGroupLayoutEntries, BlendState,
-            CachedRenderPipelineId, ColorTargetState, ColorWrites, CompareFunction, DepthBiasState,
-            DepthStencilState, FragmentState, LoadOp, Operations, PipelineCache,
-            RenderPassColorAttachment, RenderPassDescriptor, RenderPipelineDescriptor, Sampler,
-            SamplerBindingType, SamplerDescriptor, ShaderStages, StencilFaceState, StencilState,
-            StoreOp, TextureFormat, TextureSampleType,
+            BindGroupEntries, BindGroupLayout, BindGroupLayoutEntries, CachedRenderPipelineId,
+            ColorTargetState, ColorWrites, CompareFunction, DepthBiasState, DepthStencilState,
+            FragmentState, LoadOp, Operations, PipelineCache, RenderPassColorAttachment,
+            RenderPassDescriptor, RenderPipelineDescriptor, Sampler, SamplerBindingType,
+            SamplerDescriptor, ShaderStages, StencilState, StoreOp, TextureSampleType,
             binding_types::{sampler, texture_2d},
         },
         renderer::{RenderContext, RenderDevice},
