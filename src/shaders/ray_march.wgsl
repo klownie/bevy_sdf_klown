@@ -17,6 +17,7 @@
 
     depth_prepass,
     normal_prepass,
+    mask_prepass,
     material_prepass,
 };
 #import bevy_sdf::selectors::{select_shape, select_blend};
@@ -343,7 +344,7 @@ fn compute_sss(
 
 
 @compute @workgroup_size(8, 8, 1)
-fn init(@builtin(global_invocation_id) id: vec3u) {
+fn compute_raymarch(@builtin(global_invocation_id) id: vec3u) {
 
     let buffer_size = view.viewport.zw * settings.depth_scale;
 
@@ -362,7 +363,7 @@ fn init(@builtin(global_invocation_id) id: vec3u) {
     let p_ndc = position_world_to_ndc(m.pos, view.clip_from_world);
     let ray_depth = p_ndc.z;
 
-    let depth = select(ray_depth, -1.0, m.depth > settings.max_distance);
+    let depth = select(ray_depth, -0.001, m.depth > settings.max_distance);
 
     textureStore(depth_prepass, id.xy, vec4f(depth));
     textureStore(normal_prepass, id.xy, vec4f(vec3f(m.normal * .5 + .5), 1.));
@@ -370,17 +371,11 @@ fn init(@builtin(global_invocation_id) id: vec3u) {
 }
 
 @compute @workgroup_size(8, 8, 1)
-fn scale(@builtin(global_invocation_id) id: vec3u) {
+fn compute_mask(@builtin(global_invocation_id) id: vec3u) {
 
     let scaled_id = vec2u(vec2f(id.xy) * settings.depth_scale);
-
     let depth_pass = textureLoad(depth_prepass, scaled_id);
     let world_depth = textureLoad(depth_texture, id.xy, 0);
-    let material_pass = textureLoad(material_prepass, scaled_id);
 
-    if depth_pass.x < world_depth {
-        return;
-    }
-    
-    textureStore(screen_texture, id.xy, material_pass);
+    textureStore(mask_prepass, id.xy, vec4f(depth_pass.x < world_depth) );
 }

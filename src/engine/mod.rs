@@ -18,10 +18,11 @@ use nodes::RayMarchEngineNode;
 use object::{SdMaterial, SdMod, SdShape};
 use op::SdBlend;
 
+use crate::engine::blit_pass::{BlitNode, init_raymarch_blit_pipeline};
 use crate::engine::buffer::RayMarchBuffer;
 use crate::engine::object::SdModStack;
 use crate::engine::op::SdIndex;
-use crate::engine::pipeline::init_raymarch_engine_pipeline;
+use crate::engine::pipeline::init_raymarch_compute_pipeline;
 use crate::engine::prepare::{
     prepare_raymarch_bind_group, prepare_raymarch_buffer, prepare_raymarch_textures,
 };
@@ -30,6 +31,7 @@ use bevy::render::render_graph::RenderGraphExt;
 #[cfg(feature = "skein")]
 use hierarchy::InitSkeinSdRelationShip;
 
+mod blit_pass;
 mod nodes;
 mod pipeline;
 
@@ -41,8 +43,10 @@ pub mod op;
 pub mod prepare;
 pub mod prepass;
 
-const RAY_MARCH_MAIN_PASS_HANDLE: Handle<Shader> =
+const RAY_MARCH_COMPUTE_PASS_HANDLE: Handle<Shader> =
     uuid_handle!("ca4a5dbf-4da9-4779-bcdc-dd3186088e08");
+const RAY_MARCH_BLIT_PASS_HANDLE: Handle<Shader> =
+    uuid_handle!("691fef51-0ad4-4131-81c6-f71e674505ab");
 
 const WORKGROUP_SIZE: u32 = 8;
 
@@ -52,8 +56,15 @@ impl Plugin for RayMarchEnginePlugin {
     fn build(&self, app: &mut App) {
         load_internal_asset!(
             app,
-            RAY_MARCH_MAIN_PASS_HANDLE,
+            RAY_MARCH_COMPUTE_PASS_HANDLE,
             "../shaders/ray_march.wgsl",
+            Shader::from_wgsl
+        );
+
+        load_internal_asset!(
+            app,
+            RAY_MARCH_BLIT_PASS_HANDLE,
+            "../shaders/blit.wgsl",
             Shader::from_wgsl
         );
 
@@ -92,7 +103,7 @@ impl Plugin for RayMarchEnginePlugin {
         };
 
         render_app
-            .add_systems(RenderStartup, init_raymarch_engine_pipeline)
+            .add_systems(RenderStartup, init_raymarch_compute_pipeline)
             .add_systems(
                 Render,
                 (
@@ -104,13 +115,24 @@ impl Plugin for RayMarchEnginePlugin {
                         .run_if(resource_exists::<RayMarchBuffer>),
                 ),
             )
-            .add_render_graph_node::<ViewNodeRunner<RayMarchEngineNode>>(Core3d, RayMarchPass)
-            .add_render_graph_edges(Core3d, (Node3d::EndMainPass, RayMarchPass));
+            .add_render_graph_node::<ViewNodeRunner<RayMarchEngineNode>>(
+                Core3d,
+                RayMarchPass::ComputePass,
+            )
+            .add_render_graph_edges(Core3d, (Node3d::EndMainPass, RayMarchPass::ComputePass));
+
+        render_app
+            .add_systems(RenderStartup, init_raymarch_blit_pipeline)
+            .add_render_graph_node::<ViewNodeRunner<BlitNode>>(Core3d, RayMarchPass::BlitPass)
+            .add_render_graph_edges(Core3d, (RayMarchPass::ComputePass, RayMarchPass::BlitPass));
     }
 }
 
 #[derive(Debug, Hash, PartialEq, Eq, Clone, RenderLabel)]
-pub struct RayMarchPass;
+pub enum RayMarchPass {
+    ComputePass,
+    BlitPass,
+}
 
 fn ray_march_operator_buffer_needs_update(
     check_op_query: Query<

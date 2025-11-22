@@ -1,9 +1,7 @@
 use std::f32::consts::FRAC_PI_2;
 
-use bevy::camera::CameraMainTextureUsages;
-use bevy::core_pipeline::prepass::DepthPrepass;
+use bevy::core_pipeline::prepass::{DepthPrepass, NormalPrepass};
 use bevy::prelude::*;
-use bevy::render::render_resource::TextureUsages;
 use bevy::render::view::Hdr;
 use bevy_egui::EguiPlugin;
 use bevy_inspector_egui::quick::WorldInspectorPlugin;
@@ -120,10 +118,10 @@ fn setup(
             msaa_writeback: false,
             ..default()
         },
-        CameraMainTextureUsages::default().with(TextureUsages::STORAGE_BINDING),
         PanOrbitCamera::default(),
         Msaa::Off,
         DepthPrepass::default(),
+        NormalPrepass::default(),
         Transform::from_xyz(-2.0, 2.5, 5.0).looking_at(Vec3::ZERO, Vec3::Y),
     ));
 }

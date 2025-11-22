@@ -61,8 +61,8 @@ impl ViewNode for RayMarchEngineNode {
         let bind_group = world.resource::<RayMarchEngineBindGroup>();
 
         let (Some(march_pipeline), Some(scale_pipeline)) = (
-            pipeline_cache.get_compute_pipeline(ray_march_pipeline.march_pipeline),
-            pipeline_cache.get_compute_pipeline(ray_march_pipeline.scale_pipeline),
+            pipeline_cache.get_compute_pipeline(ray_march_pipeline.compute_raymarch_pipeline),
+            pipeline_cache.get_compute_pipeline(ray_march_pipeline.compute_mask_pipeline),
         ) else {
             return Ok(());
         };

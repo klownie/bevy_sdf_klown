@@ -1,7 +1,6 @@
+use bevy::core_pipeline::prepass::DepthPrepass;
 use bevy::prelude::*;
-use bevy::render::render_resource::TextureUsages;
 use bevy::render::view::Hdr;
-use bevy::{camera::CameraMainTextureUsages, core_pipeline::prepass::DepthPrepass};
 use bevy_egui::EguiPlugin;
 use bevy_inspector_egui::quick::WorldInspectorPlugin;
 use bevy_panorbit_camera::{PanOrbitCamera, PanOrbitCameraPlugin};
@@ -112,7 +111,6 @@ fn setup(mut commands: Commands) {
             ..default()
         },
         Hdr,
-        CameraMainTextureUsages::default().with(TextureUsages::STORAGE_BINDING),
         PanOrbitCamera::default(),
         Msaa::Off,
         DepthPrepass::default(),

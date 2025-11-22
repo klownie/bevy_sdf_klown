@@ -10,7 +10,7 @@ use bevy::{
             TextureDimension, TextureFormat, TextureUsages, TextureViewDescriptor,
         },
         renderer::{RenderDevice, RenderQueue},
-        view::{ViewTarget, ViewUniforms},
+        view::ViewUniforms,
     },
 };
 
@@ -46,6 +46,12 @@ pub(crate) fn prepare_raymarch_textures(
         if ray_march_resources.map(|r| r.view_size) == Some(view_size) {
             continue;
         }
+
+        let size = Extent3d {
+            width: view_size.x,
+            height: view_size.y,
+            depth_or_array_layers: 1,
+        };
 
         let scaled_size = Extent3d {
             width: (view_size.x as f32 * ray_march_settings.depth_scale) as u32,
@@ -95,6 +101,27 @@ pub(crate) fn prepare_raymarch_textures(
                 ..default()
             });
 
+        let mask = render_device
+            .create_texture(&TextureDescriptor {
+                label: Some("raymarch_mask_texture"),
+                size: size,
+                mip_level_count: 1,
+                sample_count: 1,
+                dimension: TextureDimension::D2,
+                format: TextureFormat::R16Float,
+                usage: TextureUsages::COPY_DST
+                    | TextureUsages::STORAGE_BINDING
+                    | TextureUsages::TEXTURE_BINDING,
+                view_formats: &[],
+            })
+            .create_view(&TextureViewDescriptor {
+                label: Some("raymarch_mask_view"),
+                base_mip_level: 0,
+                aspect: TextureAspect::All,
+                base_array_layer: 0,
+                ..default()
+            });
+
         let output = render_device
             .create_texture(&TextureDescriptor {
                 label: Some("raymarch_material_texture"),
@@ -119,6 +146,7 @@ pub(crate) fn prepare_raymarch_textures(
         commands.entity(entity).insert(RayMarchPrepass {
             depth,
             normal,
+            mask,
             output,
             view_size,
         });
@@ -128,7 +156,7 @@ pub(crate) fn prepare_raymarch_textures(
 pub(crate) fn prepare_raymarch_bind_group(
     mut commands: Commands,
     device: Res<RenderDevice>,
-    query: Query<(&ViewTarget, &ViewPrepassTextures, &RayMarchPrepass), With<RayMarchCamera>>,
+    query: Query<(&ViewPrepassTextures, &RayMarchPrepass), With<RayMarchCamera>>,
     ray_march_pipeline: Res<RayMarchEnginePipeline>,
     raymarch_buffer: Option<Res<RayMarchBuffer>>,
     settings_uniforms: Res<ComponentUniforms<RayMarchCamera>>,
@@ -136,7 +164,7 @@ pub(crate) fn prepare_raymarch_bind_group(
     light_meta: Res<LightMeta>,
     clusterables: Res<GlobalClusterableObjectMeta>,
 ) {
-    let Ok((view_target, view_prepass, raymarch_prepass)) = query.single() else {
+    let Ok((view_prepass, raymarch_prepass)) = query.single() else {
         return;
     };
     let (Some(settings_binding), Some(view_binding), Some(light_binding), Some(cluster_binding)) = (
@@ -150,13 +178,10 @@ pub(crate) fn prepare_raymarch_bind_group(
 
     let march_buffer = unsafe { raymarch_buffer.unwrap_unchecked() };
 
-    let view_target = view_target.get_unsampled_color_attachment();
-
     let texture_bind_group = device.create_bind_group(
         "ray_march_texture_bind_group",
         &ray_march_pipeline.texture_layout,
         &BindGroupEntries::sequential((
-            view_target.view,
             view_prepass.depth_view().unwrap(),
             settings_binding.clone(),
         )),
@@ -188,6 +213,7 @@ pub(crate) fn prepare_raymarch_bind_group(
         &BindGroupEntries::sequential((
             &raymarch_prepass.depth,
             &raymarch_prepass.normal,
+            &raymarch_prepass.mask,
             &raymarch_prepass.output,
         )),
     );
