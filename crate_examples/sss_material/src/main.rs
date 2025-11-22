@@ -41,7 +41,7 @@ fn setup(mut commands: Commands) {
                 AnimateTwitModifier,
                 Transform::from_xyz(0.0, -2.5, 0.0),
                 SdMaterial {
-                    color: Vec4::new(0.3, 0.5, 0.3, 1.0),
+                    color: LinearRgba::new(0.3, 0.5, 0.3, 1.0).into(),
                     roughness: 0.5,
                     ..default()
                 },
@@ -60,10 +60,10 @@ fn setup(mut commands: Commands) {
                 },
                 Transform::from_xyz(0.0, 1.9, 0.0),
                 SdMaterial {
-                    color: Vec4::new(0.7, 0.1, 0.5, 1.0),
+                    color: LinearRgba::new(0.7, 0.1, 0.5, 1.).into(),
                     roughness: 1.0,
                     sss_strength: 0.9,
-                    sss_radius: Vec3::new(1.0, 0.7, 0.2),
+                    sss_radius: LinearRgba::new(1.0, 0.7, 0.2, 1.).into(),
                     ..default()
                 },
             )
@@ -84,7 +84,7 @@ fn setup(mut commands: Commands) {
     commands.spawn((
         PointLight {
             intensity: 5000000.0,
-            color: Color::LinearRgba(LinearRgba::new(0.5, 0.5, 1.0, 1.0)),
+            color: LinearRgba::new(0.5, 0.5, 1.0, 1.0).into(),
             range: 1000.0,
             shadows_enabled: true,
             ..default()

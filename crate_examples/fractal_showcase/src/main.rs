@@ -40,7 +40,7 @@ fn setup(mut commands: Commands) {
                             iter: 10.0,
                         },
                         SdMaterial {
-                            color: Vec4::new(0.9, 0.5, 1.0, 1.0),
+                            color: LinearRgba::new(0.9, 0.5, 1.0, 1.0).into(),
                             roughness: 0.5,
                             ..default()
                         },
@@ -55,7 +55,7 @@ fn setup(mut commands: Commands) {
                             b_offset: 0.0,
                         },
                         SdMaterial {
-                            color: Vec4::new(0.9, 0.5, 1.0, 1.0),
+                            color: LinearRgba::new(0.9, 0.5, 1.0, 1.0).into(),
                             roughness: 0.5,
                             ..default()
                         },
@@ -70,7 +70,7 @@ fn setup(mut commands: Commands) {
                 },
                 Transform::from_xyz(10.0, 0.5, 0.0),
                 SdMaterial {
-                    color: Vec4::new(0.9, 0.5, 1.0, 1.0),
+                    color: LinearRgba::new(0.9, 0.5, 1.0, 1.0).into(),
                     roughness: 0.5,
                     ..default()
                 },

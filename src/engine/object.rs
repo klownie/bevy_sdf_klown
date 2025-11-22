@@ -1,3 +1,4 @@
+use bevy::math::VectorSpace;
 use bevy::prelude::*;
 use bevy::render::render_resource::ShaderType;
 use std::mem::transmute;
@@ -266,23 +267,23 @@ pub struct SdMaterialUniform {
 #[derive(Component, Reflect, Debug, Clone, Copy)]
 #[reflect(Component, Default)]
 pub struct SdMaterial {
-    pub color: Vec4,
+    pub color: Color,
     pub roughness: f32,
     pub fresnel: f32,
     pub metallic: f32,
     pub sss_strength: f32,
-    pub sss_radius: Vec3,
+    pub sss_radius: Color,
 }
 
 impl Default for SdMaterial {
     fn default() -> Self {
         Self {
-            color: Vec4::W,
+            color: LinearRgba::ZERO.into(),
             roughness: 0.5,
             fresnel: 0.,
             metallic: 0.,
             sss_strength: 0.,
-            sss_radius: Vec3::ONE,
+            sss_radius: LinearRgba::ZERO.into(),
         }
     }
 }
@@ -291,19 +292,11 @@ impl SdMaterial {
     #[inline]
     pub fn uniform(self) -> SdMaterialUniform {
         SdMaterialUniform {
-            color: u32::from_ne_bytes(LinearRgba::from_vec4(self.color).to_u8_array()),
+            color: u32::from_ne_bytes(self.color.to_linear().to_u8_array()),
             rough_fres_metal: u32::from_ne_bytes(
                 LinearRgba::new(self.roughness, self.fresnel, self.metallic, 0.).to_u8_array(),
             ),
-            sss_strength_radius: u32::from_ne_bytes(
-                LinearRgba::from_vec4(Vec4::new(
-                    self.sss_strength,
-                    self.sss_radius.x,
-                    self.sss_radius.y,
-                    self.sss_radius.z,
-                ))
-                .to_u8_array(),
-            ),
+            sss_strength_radius: u32::from_ne_bytes(self.sss_radius.to_linear().to_u8_array()),
         }
     }
 }
@@ -311,12 +304,12 @@ impl SdMaterial {
 impl From<StandardMaterial> for SdMaterial {
     fn from(source: StandardMaterial) -> Self {
         Self {
-            color: source.base_color.to_linear().to_vec4(),
+            color: source.base_color,
             roughness: source.perceptual_roughness,
             fresnel: 0.,
             metallic: source.metallic,
             sss_strength: 0.,
-            sss_radius: Vec3::ZERO,
+            sss_radius: LinearRgba::ZERO.into(),
         }
     }
 }

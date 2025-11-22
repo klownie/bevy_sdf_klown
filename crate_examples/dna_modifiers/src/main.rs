@@ -63,7 +63,7 @@ fn setup(mut commands: Commands) {
                 AnimateTwitModifier,
                 Transform::from_xyz(0.0, -2.5, 0.0),
                 SdMaterial {
-                    color: Vec4::new(0.3, 0.8, 0.0, 1.0),
+                    color: LinearRgba::new(0.3, 0.8, 0.0, 1.0).into(),
                     roughness: 0.5,
                     ..default()
                 },
@@ -75,7 +75,7 @@ fn setup(mut commands: Commands) {
                 },
                 Transform::from_xyz(0.0, 1.9, 0.0),
                 SdMaterial {
-                    color: Vec4::new(0.5, 0.0, 1.0, 1.0),
+                    color: LinearRgba::new(0.5, 0.0, 1.0, 1.0).into(),
                     roughness: 1.0,
                     ..default()
                 },

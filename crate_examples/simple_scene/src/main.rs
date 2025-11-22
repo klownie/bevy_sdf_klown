@@ -69,7 +69,7 @@ fn setup(
                             edge_radius: 1.0
                         },
                         SdMaterial {
-                            color: Vec4::new(0.3, 0.5, 0.3, 1.0),
+                            color: LinearRgba::new(0.3, 0.5, 0.3, 1.0).into(),
                             roughness: 0.5,
                             ..default()
                         },
