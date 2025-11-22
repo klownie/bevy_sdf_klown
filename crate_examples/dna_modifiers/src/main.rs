@@ -38,46 +38,44 @@ fn main() {
 
 fn setup(mut commands: Commands) {
     commands.spawn((
-        SdBlend::SmoothUnion { k: 1.5 },
+        SdBlend::Union,
         op_patients![
             (
-                SdShape::RoundBox {
-                    bounds: Vec3::new(10.0, 5.0, 5.0),
-                    radius: 1.0,
+                SdShape::BoxFrame {
+                    bounds: Vec3::new(5.0, 0.4, 1.5),
+                    edge: 0.2,
                 },
                 SdModStack {
                     modifiers: vec![
-                        SdMod::InfArray {
-                            c: Vec3::new(14.0, 40.0, 9.0)
+                        SdMod::LimArray {
+                            c: 1.2,
+                            lim: Vec3::new(0., 0., 1000.)
                         },
-                        SdMod::RotateY { a: 0.8 },
-                        SdMod::Twist { k: 0.1 },
+                        SdMod::Twist { k: 0.25 },
+                        SdMod::LimArray {
+                            c: 25.,
+                            lim: Vec3::new(1000., 1000., 0.)
+                        },
+                        SdMod::Twist { k: 0.0 },
                         SdMod::CheapBend { k: 0.01 }
                     ]
                 },
                 AnimateTwitModifier,
                 Transform::from_xyz(0.0, -2.5, 0.0),
                 SdMaterial {
-                    color: Vec4::new(0.3, 0.5, 0.3, 1.0),
+                    color: Vec4::new(0.3, 0.8, 0.0, 1.0),
                     roughness: 0.5,
                     ..default()
                 },
             ),
             (
-                SdShape::Box {
-                    bounds: Vec3::new(2.0, 4.0, 2.0)
-                },
+                SdShape::Bunny { s: 6. },
                 SdModStack {
-                    modifiers: vec![
-                        SdMod::CheapBend { k: 0.3 },
-                        SdMod::Elongate {
-                            h: Vec3::new(0.0, 2.0, 0.0)
-                        },
-                    ]
+                    modifiers: Vec::new()
                 },
                 Transform::from_xyz(0.0, 1.9, 0.0),
                 SdMaterial {
-                    color: Vec4::new(0.7, 0.1, 0.5, 1.0),
+                    color: Vec4::new(0.5, 0.0, 1.0, 1.0),
                     roughness: 1.0,
                     ..default()
                 },
@@ -124,12 +122,13 @@ fn animate_twist_modifier(
     time: Res<Time>,
 ) {
     for mut stack in query.iter_mut() {
-        for modifier in stack.modifiers.iter_mut() {
+        for modifier in stack.modifiers.iter_mut().rev() {
             if let SdMod::Twist { k, .. } = modifier {
                 let eas_func = EaseFunction::SmootherStep;
                 *k = eas_func.sample_unchecked(time.elapsed_secs().sin().abs())
                     * time.elapsed_secs_wrapped().sin().signum()
                     / 50.0;
+                return;
             }
         }
     }

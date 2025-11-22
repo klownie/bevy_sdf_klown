@@ -148,9 +148,7 @@ pub(crate) fn prepare_raymarch_bind_group(
         return;
     };
 
-    let Some(march_buffer) = raymarch_buffer else {
-        return;
-    };
+    let march_buffer = unsafe { raymarch_buffer.unwrap_unchecked() };
 
     let view_target = view_target.get_unsampled_color_attachment();
 

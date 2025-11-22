@@ -1,4 +1,4 @@
 /target
-/examples/*/target
+/crate_examples/*/target
 Cargo.lock
-/examples/*/Cargo.lock
+/crate_examples/*/Cargo.lock

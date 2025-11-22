@@ -96,12 +96,12 @@ impl Plugin for RayMarchEnginePlugin {
             .add_systems(
                 Render,
                 (
-                    prepare_raymarch_textures.in_set(RenderSystems::PrepareAssets),
-                    // .run_if(
-                    //     resource_exists::<RayMarchEngineBindGroup>
-                    //         .or(resource_changed::<RayMarchBuffer>),
-                    // ),
-                    prepare_raymarch_bind_group.in_set(RenderSystems::PrepareBindGroups), // .run_if(resource_changed::<RayMarchBuffer>),
+                    prepare_raymarch_textures
+                        .in_set(RenderSystems::PrepareAssets)
+                        .run_if(resource_exists::<RayMarchBuffer>),
+                    prepare_raymarch_bind_group
+                        .in_set(RenderSystems::PrepareBindGroups)
+                        .run_if(resource_exists::<RayMarchBuffer>),
                 ),
             )
             .add_render_graph_node::<ViewNodeRunner<RayMarchEngineNode>>(Core3d, RayMarchPass)
