@@ -66,7 +66,7 @@ pub(crate) fn init_raymarch_compute_pipeline(
                 storage_buffer_read_only_sized(false, None),
                 storage_buffer_read_only_sized(false, None),
                 storage_buffer_read_only_sized(false, None),
-                // storage_buffer_read_only_sized(false, None),
+                storage_buffer_read_only_sized(false, None),
             ),
         ),
     );

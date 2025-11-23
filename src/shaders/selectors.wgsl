@@ -2,6 +2,7 @@
 
 #import bevy_sdf::bindings::{
     sd_mod,
+    sd_field_data,
 }
 
 #import bevy_sdf::utils::{
@@ -29,114 +30,282 @@
 }
 
 fn select_shape(p: vec3f, shape: SdShape, transform: SdTransform, modifiers: SdModStack) -> f32 {
-    let shape_data = shape.data * 0.5; //scale it to match blender
     var pos = apply_transform(p, transform);
 
-    for (var i = 0u; i < modifiers.len; i++) {
-        pos = apply_mod(pos, sd_mod[modifiers.start_index + i ]);
+    for (var i = 0u; i < modifiers.len; i = i + 1u) {
+        pos = apply_mod(pos, sd_mod[modifiers.start_index + i]);
     }
+
     switch shape.type_id {
         case 0u, default {
-            return sdSphere(pos, shape_data[0].x);
+            return sdSphere(pos, sd_field_data[shape.data_index]);
         }
         case 1u {
-            return sdEllipsoid(pos, shape_data[0]);
+            return sdEllipsoid(pos, vec3f(
+                sd_field_data[shape.data_index + 0],
+                sd_field_data[shape.data_index + 1],
+                sd_field_data[shape.data_index + 2]
+            ));
         }
         case 2u {
-            return sdBox(pos, shape_data[0]);
+            return sdBox(pos, vec3f(
+                sd_field_data[shape.data_index + 0],
+                sd_field_data[shape.data_index + 1],
+                sd_field_data[shape.data_index + 2]
+            ));
         }
         case 3u {
-            return sdRoundBox(pos, shape_data[0], shape_data[1].x);
+            return sdRoundBox(pos, vec3f(
+                sd_field_data[shape.data_index + 0],
+                sd_field_data[shape.data_index + 1],
+                sd_field_data[shape.data_index + 2]
+            ), sd_field_data[shape.data_index + 3]);
         }
         case 4u {
-            return sdBoxFrame(pos, shape_data[0], shape_data[1].x);
+            return sdBoxFrame(pos, vec3f(
+                sd_field_data[shape.data_index + 0],
+                sd_field_data[shape.data_index + 1],
+                sd_field_data[shape.data_index + 2]
+            ), sd_field_data[shape.data_index + 3]);
         }
         case 5u {
-            return sdGyroid(pos, shape_data[0].x);
+            return sdGyroid(pos, sd_field_data[shape.data_index]);
         }
         case 6u {
-            return sdTorus(pos, shape_data[0].x, shape_data[0].y);
+            return sdTorus(pos,
+                sd_field_data[shape.data_index],
+                sd_field_data[shape.data_index + 1]
+            );
         }
         case 7u {
-            return sdCappedTorus(pos, shape_data[0].x, shape_data[0].y, shape_data[1].xy);
+            return sdCappedTorus(pos,
+                sd_field_data[shape.data_index],
+                sd_field_data[shape.data_index + 1],
+                vec2f(sd_field_data[shape.data_index + 2], sd_field_data[shape.data_index + 3])
+            );
         }
         case 8u {
-            return sdLink(pos, shape_data[0].x, shape_data[0].y, shape_data[0].z);
+            return sdLink(pos,
+                sd_field_data[shape.data_index],
+                sd_field_data[shape.data_index + 1],
+                sd_field_data[shape.data_index + 2]
+            );
         }
         case 9u {
-            return sdVerticalCapsule(pos, shape_data[0].x, shape_data[0].y);
+            return sdVerticalCapsule(pos,
+                sd_field_data[shape.data_index],
+                sd_field_data[shape.data_index + 1]
+            );
         }
         case 10u {
-            return sdCapsule(pos, shape_data[0], shape_data[1], shape_data[2].x);
+            return sdCapsule(pos,
+                vec3f(
+                    sd_field_data[shape.data_index + 0],
+                    sd_field_data[shape.data_index + 1],
+                    sd_field_data[shape.data_index + 2]
+                ),
+                vec3f(
+                    sd_field_data[shape.data_index + 3],
+                    sd_field_data[shape.data_index + 4],
+                    sd_field_data[shape.data_index + 5]
+                ),
+                sd_field_data[shape.data_index + 6]
+            );
         }
         case 11u {
-            return sdCylinder(pos, shape_data[0], shape_data[1], shape_data[2].x);
+            return sdCylinder(pos,
+                vec3f(
+                    sd_field_data[shape.data_index + 0],
+                    sd_field_data[shape.data_index + 1],
+                    sd_field_data[shape.data_index + 2]
+                ),
+                vec3f(
+                    sd_field_data[shape.data_index + 3],
+                    sd_field_data[shape.data_index + 4],
+                    sd_field_data[shape.data_index + 5]
+                ),
+                sd_field_data[shape.data_index + 6]
+            );
         }
         case 12u {
-            return sdVerticalCylinder(pos, shape_data[0].x, shape_data[0].y);
+            return sdVerticalCylinder(pos,
+                sd_field_data[shape.data_index],
+                sd_field_data[shape.data_index + 1]
+            );
         }
         case 13u {
-            return sdRoundedCylinder(pos, shape_data[0].x, shape_data[0].y, shape_data[0].z);
+            return sdRoundedCylinder(pos,
+                sd_field_data[shape.data_index],
+                sd_field_data[shape.data_index + 1],
+                sd_field_data[shape.data_index + 2]
+            );
         }
         case 14u {
-            return sdInfiniteCylinder(pos, shape_data[0].xyz);
+            return sdInfiniteCylinder(pos,
+                vec3f(
+                    sd_field_data[shape.data_index + 0],
+                    sd_field_data[shape.data_index + 1],
+                    sd_field_data[shape.data_index + 2]
+                )
+            );
         }
         case 15u {
-            return sdCone(pos, shape_data[0].x, shape_data[1].xy);
+            return sdCone(pos,
+                sd_field_data[shape.data_index],
+                vec2f(
+                    sd_field_data[shape.data_index + 1],
+                    sd_field_data[shape.data_index + 2]
+                )
+            );
         }
         case 16u {
-            return sdConeBound(pos, shape_data[0].x, shape_data[1].xy);
+            return sdConeBound(pos,
+                sd_field_data[shape.data_index],
+                vec2f(
+                    sd_field_data[shape.data_index + 1],
+                    sd_field_data[shape.data_index + 2]
+                )
+            );
         }
         case 17u {
-            return sdInfiniteCone(pos, shape_data[0].xy);
+            return sdInfiniteCone(pos,
+                vec2f(
+                    sd_field_data[shape.data_index + 0],
+                    sd_field_data[shape.data_index + 1]
+                )
+            );
         }
         case 18u {
-            return sdCappedVerticalCone(pos, shape_data[0].x, shape_data[0].y, shape_data[0].z);
+            return sdCappedVerticalCone(pos,
+                sd_field_data[shape.data_index + 0],
+                sd_field_data[shape.data_index + 1],
+                sd_field_data[shape.data_index + 2]
+            );
         }
         case 19u {
-            return sdCappedCone(pos, shape_data[0], shape_data[1], shape_data[2].x, shape_data[2].y);
+            return sdCappedCone(pos,
+                vec3f(
+                    sd_field_data[shape.data_index + 0],
+                    sd_field_data[shape.data_index + 1],
+                    sd_field_data[shape.data_index + 2]
+                ),
+                vec3f(
+                    sd_field_data[shape.data_index + 3],
+                    sd_field_data[shape.data_index + 4],
+                    sd_field_data[shape.data_index + 5]
+                ),
+                sd_field_data[shape.data_index + 6],
+                sd_field_data[shape.data_index + 7]
+            );
         }
         case 20u {
-            return sdRoundVerticalCone(pos, shape_data[0].x, shape_data[0].y, shape_data[0].z);
+            return sdRoundVerticalCone(pos,
+                sd_field_data[shape.data_index + 0],
+                sd_field_data[shape.data_index + 1],
+                sd_field_data[shape.data_index + 2]
+            );
         }
         case 21u {
-            return sdRoundCone(pos, shape_data[0], shape_data[1], shape_data[2].x, shape_data[2].y);
+            return sdRoundCone(pos,
+                vec3f(
+                    sd_field_data[shape.data_index + 0],
+                    sd_field_data[shape.data_index + 1],
+                    sd_field_data[shape.data_index + 2]
+                ),
+                vec3f(
+                    sd_field_data[shape.data_index + 3],
+                    sd_field_data[shape.data_index + 4],
+                    sd_field_data[shape.data_index + 5]
+                ),
+                sd_field_data[shape.data_index + 6],
+                sd_field_data[shape.data_index + 7]
+            );
         }
         case 22u {
-            return sdSolidAngle(pos, shape_data[0].xy, shape_data[0].z);
+            return sdSolidAngle(pos,
+                vec2f(
+                    sd_field_data[shape.data_index + 0],
+                    sd_field_data[shape.data_index + 1]
+                ),
+                sd_field_data[shape.data_index + 2]
+            );
         }
         case 23u {
-            return sdPlane(pos, shape_data[0].xyz, shape_data[1].x);
+            return sdPlane(pos,
+                vec3f(
+                    sd_field_data[shape.data_index + 0],
+                    sd_field_data[shape.data_index + 1],
+                    sd_field_data[shape.data_index + 2]
+                ),
+                sd_field_data[shape.data_index + 3]
+            );
         }
         case 24u {
-            return sdOctahedron(pos, shape_data[0].x);
+            return sdOctahedron(pos, sd_field_data[shape.data_index]);
         }
         case 25u {
-            return sdOctahedronBound(pos, shape_data[0].x);
+            return sdOctahedronBound(pos, sd_field_data[shape.data_index]);
         }
         case 26u {
-            return sdPyramid(pos, shape_data[0].x);
+            return sdPyramid(pos, sd_field_data[shape.data_index]);
         }
         case 27u {
-            return sdHexPrism(pos, shape_data[0].xy);
+            return sdHexPrism(pos,
+                vec2f(
+                    sd_field_data[shape.data_index + 0],
+                    sd_field_data[shape.data_index + 1]
+                )
+            );
         }
         case 28u {
-            return sdTriPrism(pos, shape_data[0].xy);
+            return sdTriPrism(pos,
+                vec2f(
+                    sd_field_data[shape.data_index + 0],
+                    sd_field_data[shape.data_index + 1]
+                )
+            );
         }
         case 29u {
-            return udTriangle(pos, shape_data[0], shape_data[1], shape_data[2]);
+            return udTriangle(pos,
+                vec3f(
+                    sd_field_data[shape.data_index + 0],
+                    sd_field_data[shape.data_index + 1],
+                    sd_field_data[shape.data_index + 2]
+                ),
+                vec3f(
+                    sd_field_data[shape.data_index + 3],
+                    sd_field_data[shape.data_index + 4],
+                    sd_field_data[shape.data_index + 5]
+                ),
+                vec3f(
+                    sd_field_data[shape.data_index + 6],
+                    sd_field_data[shape.data_index + 7],
+                    sd_field_data[shape.data_index + 8]
+                )
+            );
         }
         case 30u {
-            return sdBunny(pos / shape_data[0].x) * shape_data[0].x;
+            return sdBunny(pos / sd_field_data[shape.data_index]) * sd_field_data[shape.data_index];
         }
         case 31u {
-            return sdMandelbulb(pos / shape_data[0].x, shape_data[0].y, shape_data[0].z, shape_data[1].x) * shape_data[0].x;
+            return sdMandelbulb(
+                pos / sd_field_data[shape.data_index],
+                sd_field_data[shape.data_index + 1],
+                sd_field_data[shape.data_index + 2],
+                sd_field_data[shape.data_index + 3]
+            ) * sd_field_data[shape.data_index];
         }
         case 32u {
-            return sdJuliaQuaternion(pos / shape_data[0].x, shape_data[0].y) * shape_data[0].x;
+            return sdJuliaQuaternion(
+                pos / sd_field_data[shape.data_index],
+                sd_field_data[shape.data_index + 1]
+            ) * sd_field_data[shape.data_index];
         }
         case 33u {
-            return sdMengerSponge(pos / shape_data[0].x, shape_data[0].y) * shape_data[0].x;
+            return sdMengerSponge(
+                pos / sd_field_data[shape.data_index],
+                sd_field_data[shape.data_index + 1]
+            ) * sd_field_data[shape.data_index];
         }
     }
 }

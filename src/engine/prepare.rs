@@ -204,6 +204,7 @@ pub(crate) fn prepare_raymarch_bind_group(
             march_buffer.object.as_entire_buffer_binding(),
             march_buffer.operator.as_entire_buffer_binding(),
             march_buffer.modifier.as_entire_buffer_binding(),
+            march_buffer.field_data.as_entire_buffer_binding(),
         )),
     );
 
@@ -248,14 +249,24 @@ pub(crate) fn prepare_raymarch_buffer(
     let mut current_shape_index = 0;
     let mut current_op_index = 0;
     let mut current_mod_index = 0;
+    let mut current_field_data_index = 0;
 
     let mut sd_object_buffer = BufferVec::<SdObjectUniform>::new(BufferUsages::STORAGE);
     let mut sd_op_buffer = BufferVec::<SdOperatorUniform>::new(BufferUsages::STORAGE);
     let mut sd_mod_buffer = BufferVec::<SdModUniform>::new(BufferUsages::STORAGE);
+    let mut sd_field_data_buffer = BufferVec::<f32>::new(BufferUsages::STORAGE);
 
     let mut push_object = |entity: Entity| -> Option<u16> {
         let (&shape, modifier_stack, transform, some_mat_handle, some_sd_mat) =
             sdf_object_query.get(entity).ok()?;
+
+        let nb_shape_field = shape.gpu_field_count();
+        let start_field_data_index = current_field_data_index;
+        current_field_data_index += nb_shape_field;
+
+        for &field in shape.flatten_fields().iter() {
+            sd_field_data_buffer.push(field / 2.); // div by 2 is for matching with the blender
+        }
 
         let material = match (some_mat_handle, some_sd_mat) {
             (Some(mat_handle), _) => {
@@ -279,12 +290,10 @@ pub(crate) fn prepare_raymarch_buffer(
         };
 
         // Push modifiers and count them
-        let start_index = current_mod_index;
+        let start_mod_index = current_mod_index;
         for &modifier in modifier_stack.modifiers.iter().rev() {
             current_mod_index = sd_mod_buffer.push(modifier.uniform()) + 1;
         }
-
-        shape.enum_variant_nb_arguments();
 
         sd_object_buffer.push(
             SdObject {
@@ -293,7 +302,7 @@ pub(crate) fn prepare_raymarch_buffer(
                 modifier_stack: modifier_stack.clone(),
                 transform,
             }
-            .uniform(start_index),
+            .uniform(start_mod_index, start_field_data_index),
         );
 
         let i = Some(current_shape_index);
@@ -322,16 +331,19 @@ pub(crate) fn prepare_raymarch_buffer(
     sd_object_buffer.write_buffer(&device, &queue);
     sd_op_buffer.write_buffer(&device, &queue);
     sd_mod_buffer.write_buffer(&device, &queue);
+    sd_field_data_buffer.write_buffer(&device, &queue);
 
-    if let (Some(object_buf), Some(operator_buf), Some(modifier_buf)) = (
+    if let (Some(object_buf), Some(operator_buf), Some(modifier_buf), Some(field_data_buf)) = (
         sd_object_buffer.buffer(),
         sd_op_buffer.buffer(),
         sd_mod_buffer.buffer(),
+        sd_field_data_buffer.buffer(),
     ) {
         commands.insert_resource(RayMarchBuffer {
             object: object_buf.clone(),
             operator: operator_buf.clone(),
             modifier: modifier_buf.clone(),
+            field_data: field_data_buf.clone(),
         });
     }
 }

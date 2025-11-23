@@ -8,4 +8,5 @@ pub struct RayMarchBuffer {
     pub object: Buffer,
     pub operator: Buffer,
     pub modifier: Buffer,
+    pub field_data: Buffer,
 }

@@ -21,9 +21,9 @@ pub struct SdObject {
 }
 
 impl SdObject {
-    pub fn uniform(&self, start_mod_index: usize) -> SdObjectUniform {
+    pub fn uniform(&self, start_mod_index: usize, start_shape_index: usize) -> SdObjectUniform {
         SdObjectUniform {
-            shape: self.shape.uniform(),
+            shape: self.shape.uniform(start_shape_index),
             material: self.material.uniform(),
             modifier_stack: self.modifier_stack.clone().uniform(start_mod_index),
             transform: self.transform.uniform(),
@@ -31,14 +31,8 @@ impl SdObject {
     }
 }
 
-#[derive(ShaderType, Clone, Copy)]
-pub struct SdShapeUniform {
-    pub type_id: u32,
-    pub data: Mat3,
-}
-
 #[repr(C)]
-#[repr(u32)]
+#[repr(u8)]
 #[derive(Reflect, Component, Debug, Copy, Clone, EnumVariantGpuFields)]
 #[require(Name::new("SdObject"), SdModStack, Transform, GlobalTransform)]
 #[reflect(Component)]
@@ -183,12 +177,23 @@ pub enum SdShape {
     },
 }
 
+#[repr(C)]
+#[derive(ShaderType, Clone, Copy)]
+pub struct SdShapeUniform {
+    pub type_id_index_len: u32,
+}
+
 impl SdShape {
     #[inline]
-    pub fn uniform(self) -> SdShapeUniform {
-        unsafe { transmute(self) }
+    pub fn uniform(self, index: usize) -> SdShapeUniform {
+        let self_bytes: [u8; 40] = unsafe { transmute(self) };
+        let index_bytes: [u8; 2] = (index as u16).to_ne_bytes();
+        let len_byte: u8 = self.gpu_field_count() as u8;
+
+        unsafe { transmute([self_bytes[0], index_bytes[0], index_bytes[1], len_byte]) }
     }
 }
+
 #[derive(ShaderType, Default, Clone, Debug, Copy)]
 pub struct SdModUniform {
     pub type_id: u32,

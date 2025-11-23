@@ -8,7 +8,7 @@ struct SdObject {
 }
 
 struct SdObjectPacked {
-    shape: SdShape,
+    shape: SdShapePacked,
     material: SdMaterialPacked,
     modifiers: SdModStackPacked,
     transform: SdTransform,
@@ -16,7 +16,7 @@ struct SdObjectPacked {
 
 fn unpack_sd_object(packed: SdObjectPacked) -> SdObject {
     return SdObject(
-        packed.shape,
+        unpack_sd_shape(packed.shape),
         unpack_sd_material(packed.material),
         unpack_sd_mod_stack(packed.modifiers),
         packed.transform
@@ -25,8 +25,22 @@ fn unpack_sd_object(packed: SdObjectPacked) -> SdObject {
 
 struct SdShape {
     type_id: u32,
-    data: mat3x3f,
+    data_index: u32,
+    len: u32
 }
+
+struct SdShapePacked {
+    type_id_index_len: u32
+}
+
+fn unpack_sd_shape(packed: SdShapePacked) -> SdShape {
+    return SdShape(
+        packed.type_id_index_len & 0xFF,          // type_id
+        (packed.type_id_index_len >> 8) & 0xFFFF, // index
+        (packed.type_id_index_len >> 24) & 0xFF   // len
+    );
+}
+
 
 struct SdMaterial {
     color: vec4f,
