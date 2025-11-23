@@ -1,0 +1,11 @@
+[package]
+name = "bevy_sdf_klown_derive"
+version = "0.1.0"
+edition = "2024"
+
+[lib]
+proc-macro = true
+
+[dependencies]
+syn = "2"
+quote = "1"

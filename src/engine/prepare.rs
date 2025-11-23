@@ -284,6 +284,8 @@ pub(crate) fn prepare_raymarch_buffer(
             current_mod_index = sd_mod_buffer.push(modifier.uniform()) + 1;
         }
 
+        shape.enum_variant_nb_arguments();
+
         sd_object_buffer.push(
             SdObject {
                 shape,

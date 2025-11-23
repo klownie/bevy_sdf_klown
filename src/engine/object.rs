@@ -1,6 +1,7 @@
 use bevy::math::VectorSpace;
 use bevy::prelude::*;
 use bevy::render::render_resource::ShaderType;
+use bevy_sdf_klown_derive::EnumVariantGpuFields;
 use std::mem::transmute;
 
 #[derive(ShaderType, Clone, Copy)]
@@ -36,8 +37,9 @@ pub struct SdShapeUniform {
     pub data: Mat3,
 }
 
+#[repr(C)]
 #[repr(u32)]
-#[derive(Reflect, Component, Debug, Copy, Clone)]
+#[derive(Reflect, Component, Debug, Copy, Clone, EnumVariantGpuFields)]
 #[require(Name::new("SdObject"), SdModStack, Transform, GlobalTransform)]
 #[reflect(Component)]
 pub enum SdShape {
@@ -187,7 +189,6 @@ impl SdShape {
         unsafe { transmute(self) }
     }
 }
-
 #[derive(ShaderType, Default, Clone, Debug, Copy)]
 pub struct SdModUniform {
     pub type_id: u32,

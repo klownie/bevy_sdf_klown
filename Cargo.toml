@@ -26,3 +26,5 @@ bevy = { version = "0.17.3", default-features = false, features = [
     "hdr",
 ]}
 log = { version = "0.4", features = ["max_level_debug", "release_max_level_warn"] }
+
+bevy_sdf_klown_derive = { path = "bevy_sdf_klown_derive" }
