@@ -24,6 +24,26 @@ fn main() {
             PanOrbitCameraPlugin,
         ))
         .add_systems(Startup, setup)
+        .insert_resource(AmbientLight {
+            color: LinearRgba {
+                red: 0.9,
+                green: 0.4,
+                blue: 0.0,
+                alpha: 0.0,
+            }
+            .into(),
+            brightness: 20.0,
+            ..default()
+        })
+        .insert_resource(ClearColor(
+            LinearRgba {
+                red: 0.05,
+                green: 0.45,
+                blue: 0.1,
+                alpha: 1.0,
+            }
+            .into(),
+        ))
         .run();
 }
 
@@ -67,7 +87,7 @@ fn setup(
                             edge_radius: 1.0
                         },
                         SdMaterial {
-                            color: LinearRgba::new(0.3, 0.5, 0.3, 1.0).into(),
+                            color: LinearRgba::new(0.8, 0.0, 0.1, 1.0).into(),
                             roughness: 0.5,
                             ..default()
                         },
