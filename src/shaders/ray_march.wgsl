@@ -105,43 +105,86 @@ fn map(p: vec3f) -> DistanceInfo {
     return unpack_distance_info(op_results[n_ops - 1u]);
 }
 
-// FastMarching REF : https://www.shadertoy.com/view/tsjGWm
 fn march(ro: vec3f, rd: vec3f) -> MarchOutput {
-    var s: f32 = 0.0;
-    var p: vec3f;
+    var t: f32 = 0.0;
+    var p: vec3f = ro;
     var mat: SdMaterial;
-    var w: f32 = settings.w;
-    var eps: f32 = settings.eps;
-    var stepCtr: u32 = 0u;
 
-    loop {
-        p = ro + rd * s;
+    let eps = settings.eps;     
+    let maxDist = settings.max_distance;
+    let maxSteps = settings.max_steps;
+
+    for (var i: u32 = 0u; i < maxSteps; i++) {
+        p = ro + rd * t;
         let hit = map(p);
+        let d = hit.dist;
         mat = hit.material;
 
-        if hit.dist < eps || s > settings.max_distance || stepCtr > settings.max_steps {
-            break;
+        if d < eps {
+            let p2 = p - rd * (0.5 * eps);
+            return MarchOutput(
+                normal(p2),
+                p2,
+                t - (0.5 * eps),
+                mat
+            );
         }
-
-        s += hit.dist * w;
-        // Adapt weight 'w' to fit the marching curve
-        w = mix(settings.w, 1.0, pow(0.9, hit.dist));
-        // Increase epsilon dynamically
-        eps *= 1.125;
-
-        stepCtr += 1u;
+        if t > maxDist {
+            return MarchOutput(
+                vec3f(0.0), 
+                p,
+                t,
+                mat
+            );
+        }
+        t += d;  
     }
 
-    if s > settings.max_distance || stepCtr > settings.max_steps {
-        return MarchOutput(vec3f(0.0), p, s, mat); // no hit
-    }
-
-    // Backstep to improve hit precision
-    let backstep = 0.5 * settings.eps;
-    p = p - rd * backstep;
-
-    return MarchOutput(normal(p), p, s - backstep, mat);
+    return MarchOutput(
+        vec3f(0.0),
+        p,
+        t,
+        mat
+    );
 }
+
+// FastMarching REF : https://www.shadertoy.com/view/tsjGWm
+// fn march(ro: vec3f, rd: vec3f) -> MarchOutput {
+//     var s: f32 = 0.0;
+//     var p: vec3f;
+//     var mat: SdMaterial;
+//     var w: f32 = settings.w;
+//     var eps: f32 = settings.eps;
+//     var stepCtr: u32 = 0u;
+//
+//     loop {
+//         p = ro + rd * s;
+//         let hit = map(p);
+//         mat = hit.material;
+//
+//         if hit.dist < eps || s > settings.max_distance || stepCtr > settings.max_steps {
+//             break;
+//         }
+//
+//         s += hit.dist * w;
+//         // Adapt weight 'w' to fit the marching curve
+//         w = mix(settings.w, 1.0, pow(0.9, hit.dist));
+//         // Increase epsilon dynamically
+//         eps *= 1.125;
+//
+//         stepCtr += 1u;
+//     }
+//
+//     if s > settings.max_distance || stepCtr > settings.max_steps {
+//         return MarchOutput(vec3f(0.0), p, s, mat); // no hit
+//     }
+//
+//     // Backstep to improve hit precision
+//     let backstep = 0.5 * settings.eps;
+//     p = p - rd * backstep;
+//
+//     return MarchOutput(normal(p), p, s - backstep, mat);
+// }
 
 fn normal(p: vec3f) -> vec3f {
     let h = settings.normal_eps;

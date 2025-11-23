@@ -328,6 +328,10 @@ pub(crate) fn prepare_raymarch_buffer(
         sd_op_buffer.push(SdOperator { op, lhs, rhs }.uniform());
     }
 
+    current_mod_index
+        .eq(&0)
+        .then(|| sd_mod_buffer.push(SdModUniform::default()));
+
     sd_object_buffer.write_buffer(&device, &queue);
     sd_op_buffer.write_buffer(&device, &queue);
     sd_mod_buffer.write_buffer(&device, &queue);

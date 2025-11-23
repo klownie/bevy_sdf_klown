@@ -1,7 +1,5 @@
 use bevy::{
-    core_pipeline::{
-        FullscreenShader, core_3d::CORE_3D_DEPTH_FORMAT, prepass::ViewPrepassTextures,
-    },
+    core_pipeline::{FullscreenShader, core_3d::CORE_3D_DEPTH_FORMAT},
     ecs::{query::QueryItem, system::lifetimeless::Read},
     prelude::*,
     render::{
@@ -15,8 +13,7 @@ use bevy::{
             binding_types::{sampler, texture_2d},
         },
         renderer::{RenderContext, RenderDevice},
-        texture::DepthAttachment,
-        view::ViewTarget,
+        view::{ViewDepthTexture, ViewTarget},
     },
 };
 
@@ -28,7 +25,7 @@ pub struct BlitNode;
 impl ViewNode for BlitNode {
     type ViewQuery = (
         Read<ViewTarget>,
-        Read<ViewPrepassTextures>,
+        Read<ViewDepthTexture>,
         Read<RayMarchCamera>,
         Read<RayMarchPrepass>,
     );
@@ -37,7 +34,7 @@ impl ViewNode for BlitNode {
         &self,
         _graph: &mut RenderGraphContext,
         render_context: &mut RenderContext,
-        (view_target, view_prepass_textures, _post_process_settings, raymarch_prepass): QueryItem<
+        (view_target, view_depth_textures, _post_process_settings, raymarch_prepass): QueryItem<
             Self::ViewQuery,
         >,
         world: &World,
@@ -60,7 +57,6 @@ impl ViewNode for BlitNode {
             )),
         );
 
-        let depth = DepthAttachment::new(view_prepass_textures.depth_view().unwrap().clone(), None);
         let mut render_pass = render_context.begin_tracked_render_pass(RenderPassDescriptor {
             label: Some("raymarch_blit_pass"),
             color_attachments: &[Some(RenderPassColorAttachment {
@@ -72,7 +68,7 @@ impl ViewNode for BlitNode {
                     store: StoreOp::Store,
                 },
             })],
-            depth_stencil_attachment: Some(depth.get_attachment(StoreOp::Store)),
+            depth_stencil_attachment: Some(view_depth_textures.get_attachment(StoreOp::Store)),
             timestamp_writes: None,
             occlusion_query_set: None,
         });

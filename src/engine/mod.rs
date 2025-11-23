@@ -119,12 +119,19 @@ impl Plugin for RayMarchEnginePlugin {
                 Core3d,
                 RayMarchPass::ComputePass,
             )
-            .add_render_graph_edges(Core3d, (Node3d::EndMainPass, RayMarchPass::ComputePass));
+            .add_render_graph_edges(Core3d, (Node3d::MainOpaquePass, RayMarchPass::ComputePass));
 
         render_app
             .add_systems(RenderStartup, init_raymarch_blit_pipeline)
             .add_render_graph_node::<ViewNodeRunner<BlitNode>>(Core3d, RayMarchPass::BlitPass)
-            .add_render_graph_edges(Core3d, (RayMarchPass::ComputePass, RayMarchPass::BlitPass));
+            .add_render_graph_edges(
+                Core3d,
+                (
+                    RayMarchPass::ComputePass,
+                    RayMarchPass::BlitPass,
+                    Node3d::MainTransmissivePass,
+                ),
+            );
     }
 }
 
