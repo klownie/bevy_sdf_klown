@@ -6,7 +6,7 @@ edition = "2024"
 skein = []
 
 [dependencies]
-bevy = { version = "0.17.2", default-features = false, features = [
+bevy = { version = "0.18.0-rc.2", default-features = false, features = [
     "bevy_asset",
     "zstd_rust",
     "bevy_color",
@@ -25,11 +25,13 @@ bevy = { version = "0.17.2", default-features = false, features = [
     "hdr",
     "tonemapping_luts",
     "multi_threaded",
-    "wayland"
+    "wayland",
+    "free_camera",
+    "gamepad",
+    "bevy_camera_controller",
 ]}
 bevy_sdf_klown = { path = "../../"}
 bevy_egui = "0.38"
 bevy-inspector-egui = "0.35"
-bevy_panorbit_camera = "0.33"
 
 

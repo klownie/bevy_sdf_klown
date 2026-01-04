@@ -1,11 +1,11 @@
 use std::f32::consts::FRAC_PI_2;
 
+use bevy::camera_controller::free_camera::{FreeCamera, FreeCameraPlugin};
 use bevy::core_pipeline::prepass::{DepthPrepass, NormalPrepass};
 use bevy::prelude::*;
 use bevy::render::view::Hdr;
-use bevy_egui::EguiPlugin;
-use bevy_inspector_egui::quick::WorldInspectorPlugin;
-use bevy_panorbit_camera::{PanOrbitCamera, PanOrbitCameraPlugin};
+// use bevy_egui::EguiPlugin;
+// use bevy_inspector_egui::quick::WorldInspectorPlugin;
 use bevy_sdf_klown::engine::object::{SdMod, SdModStack};
 use bevy_sdf_klown::engine::{
     camera::RayMarchCamera,
@@ -19,12 +19,12 @@ fn main() {
         .add_plugins((
             DefaultPlugins,
             RayMarchingPlugin,
-            EguiPlugin::default(),
-            WorldInspectorPlugin::new(),
-            PanOrbitCameraPlugin,
+            FreeCameraPlugin,
+            // EguiPlugin::default(),
+            // WorldInspectorPlugin::new(),
         ))
         .add_systems(Startup, setup)
-        .insert_resource(AmbientLight {
+        .insert_resource(GlobalAmbientLight {
             color: LinearRgba {
                 red: 0.9,
                 green: 0.4,
@@ -52,16 +52,6 @@ fn setup(
     mut meshes: ResMut<Assets<Mesh>>,
     mut materials: ResMut<Assets<StandardMaterial>>,
 ) {
-    // RayMarch Scene
-    //
-    // This example scene can be illustarted like this:
-    //
-    // SmoothUnion/
-    // ├── PlaneShape
-    // └── Union/
-    //    ├── BoxShape
-    //    └── CapsuleShape
-
     // WARN: A SdOp will only take in acount TOW RelationShips to it using SdOperatedBy
     // any amount SdOperatedBy used above or under that can BREAK the raymarcher in unexpected ways
 
@@ -115,8 +105,16 @@ fn setup(
 
     // Polygonal Scene
     commands.spawn((
-        Mesh3d(meshes.add(Cuboid::new(1.0, 1.0, 1.0))),
-        MeshMaterial3d(materials.add(Color::srgb_u8(124, 144, 255))),
+        Mesh3d(meshes.add(Sphere::new(0.9).mesh().ico(7).unwrap())),
+        MeshMaterial3d(materials.add(StandardMaterial {
+            base_color: Color::srgb_u8(124, 144, 255),
+            specular_transmission: 0.9,
+            diffuse_transmission: 1.0,
+            thickness: 1.8,
+            ior: 1.5,
+            perceptual_roughness: 0.12,
+            ..default()
+        })),
         Transform::from_xyz(0.0, 0.5, 0.0),
     ));
 
@@ -135,10 +133,10 @@ fn setup(
         Camera3d::default(),
         Hdr,
         Camera {
-            msaa_writeback: false,
+            msaa_writeback: MsaaWriteback::Off,
             ..default()
         },
-        PanOrbitCamera::default(),
+        FreeCamera::default(),
         Msaa::Off,
         DepthPrepass::default(),
         NormalPrepass::default(),

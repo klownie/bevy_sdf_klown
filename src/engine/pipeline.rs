@@ -5,7 +5,7 @@ use bevy::{
     prelude::*,
     render::{
         render_resource::{
-            BindGroupLayout, BindGroupLayoutEntries, CachedComputePipelineId,
+            BindGroupLayoutDescriptor, BindGroupLayoutEntries, CachedComputePipelineId,
             ComputePipelineDescriptor, PipelineCache, ShaderStages, StorageTextureAccess,
             TextureFormat,
             binding_types::{
@@ -13,7 +13,6 @@ use bevy::{
                 texture_storage_2d, uniform_buffer,
             },
         },
-        renderer::RenderDevice,
         view::ViewUniform,
     },
 };
@@ -22,20 +21,19 @@ use super::{RAY_MARCH_COMPUTE_PASS_HANDLE, RayMarchCamera};
 
 #[derive(Resource)]
 pub struct RayMarchEnginePipeline {
-    pub common_layout: BindGroupLayout,
-    pub texture_layout: BindGroupLayout,
-    pub storage_layout: BindGroupLayout,
-    pub prepass_layout: BindGroupLayout,
+    pub common_layout: BindGroupLayoutDescriptor,
+    pub texture_layout: BindGroupLayoutDescriptor,
+    pub storage_layout: BindGroupLayoutDescriptor,
+    pub prepass_layout: BindGroupLayoutDescriptor,
     pub compute_raymarch_pipeline: CachedComputePipelineId,
     pub compute_mask_pipeline: CachedComputePipelineId,
 }
 
 pub(crate) fn init_raymarch_compute_pipeline(
     mut commands: Commands,
-    render_device: Res<RenderDevice>,
     pipeline_cache: Res<PipelineCache>,
 ) {
-    let common_layout = render_device.create_bind_group_layout(
+    let common_layout = BindGroupLayoutDescriptor::new(
         "raymarch_import_bind_group_layout",
         &BindGroupLayoutEntries::with_indices(
             ShaderStages::COMPUTE,
@@ -50,7 +48,7 @@ pub(crate) fn init_raymarch_compute_pipeline(
         ),
     );
 
-    let texture_layout = render_device.create_bind_group_layout(
+    let texture_layout = BindGroupLayoutDescriptor::new(
         "raymarch_texture_bind_group_layout",
         &BindGroupLayoutEntries::sequential(
             ShaderStages::COMPUTE,
@@ -58,7 +56,7 @@ pub(crate) fn init_raymarch_compute_pipeline(
         ),
     );
 
-    let storage_layout = render_device.create_bind_group_layout(
+    let storage_layout = BindGroupLayoutDescriptor::new(
         "raymarch_storage_bind_group_layout",
         &BindGroupLayoutEntries::sequential(
             ShaderStages::COMPUTE,
@@ -71,7 +69,7 @@ pub(crate) fn init_raymarch_compute_pipeline(
         ),
     );
 
-    let prepass_layout = render_device.create_bind_group_layout(
+    let prepass_layout = BindGroupLayoutDescriptor::new(
         "raymarch_prepass_bind_group_layout",
         &BindGroupLayoutEntries::sequential(
             ShaderStages::COMPUTE,

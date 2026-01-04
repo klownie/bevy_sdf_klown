@@ -5,11 +5,12 @@ use bevy::{
     render::{
         render_graph::{NodeRunError, RenderGraphContext, ViewNode},
         render_resource::{
-            BindGroupEntries, BindGroupLayout, BindGroupLayoutEntries, CachedRenderPipelineId,
-            ColorTargetState, ColorWrites, CompareFunction, DepthBiasState, DepthStencilState,
-            FragmentState, LoadOp, Operations, PipelineCache, RenderPassColorAttachment,
-            RenderPassDescriptor, RenderPipelineDescriptor, Sampler, SamplerBindingType,
-            SamplerDescriptor, ShaderStages, StencilState, StoreOp, TextureSampleType,
+            BindGroupEntries, BindGroupLayoutDescriptor, BindGroupLayoutEntries,
+            CachedRenderPipelineId, ColorTargetState, ColorWrites, CompareFunction, DepthBiasState,
+            DepthStencilState, FragmentState, LoadOp, Operations, PipelineCache,
+            RenderPassColorAttachment, RenderPassDescriptor, RenderPipelineDescriptor, Sampler,
+            SamplerBindingType, SamplerDescriptor, ShaderStages, StencilState, StoreOp,
+            TextureSampleType,
             binding_types::{sampler, texture_2d},
         },
         renderer::{RenderContext, RenderDevice},
@@ -49,7 +50,7 @@ impl ViewNode for BlitNode {
 
         let bind_group = render_context.render_device().create_bind_group(
             "raymarch_blit_bind_group",
-            &raymarch_blit_pipeline.layout,
+            &pipeline_cache.get_bind_group_layout(&raymarch_blit_pipeline.layout),
             &BindGroupEntries::sequential((
                 &raymarch_prepass.depth,
                 &raymarch_prepass.output,
@@ -83,7 +84,7 @@ impl ViewNode for BlitNode {
 
 #[derive(Resource)]
 struct RayMarchPipeline {
-    layout: BindGroupLayout,
+    layout: BindGroupLayoutDescriptor,
     sampler: Sampler,
     pipeline_id: CachedRenderPipelineId,
 }
@@ -94,7 +95,7 @@ pub(crate) fn init_raymarch_blit_pipeline(
     fullscreen_shader: Res<FullscreenShader>,
     pipeline_cache: Res<PipelineCache>,
 ) {
-    let layout = render_device.create_bind_group_layout(
+    let layout = BindGroupLayoutDescriptor::new(
         "post_process_bind_group_layout",
         &BindGroupLayoutEntries::sequential(
             ShaderStages::FRAGMENT,

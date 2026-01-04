@@ -1,9 +1,9 @@
+use bevy::camera_controller::free_camera::{FreeCamera, FreeCameraPlugin};
 use bevy::core_pipeline::prepass::DepthPrepass;
 use bevy::prelude::*;
 use bevy::render::view::Hdr;
-use bevy_egui::EguiPlugin;
-use bevy_inspector_egui::quick::WorldInspectorPlugin;
-use bevy_panorbit_camera::{PanOrbitCamera, PanOrbitCameraPlugin};
+// use bevy_egui::EguiPlugin;
+// use bevy_inspector_egui::quick::WorldInspectorPlugin;
 use bevy_sdf_klown::engine::{
     camera::RayMarchCamera,
     object::{SdMaterial, SdShape},
@@ -17,9 +17,9 @@ fn main() {
         .add_plugins((
             DefaultPlugins,
             RayMarchingPlugin,
-            EguiPlugin::default(),
-            WorldInspectorPlugin::new(),
-            PanOrbitCameraPlugin,
+            // EguiPlugin::default(),
+            // WorldInspectorPlugin::new(),
+            FreeCameraPlugin,
         ))
         .add_systems(Startup, setup)
         .add_systems(Update, animate_mandelbulb)
@@ -107,11 +107,11 @@ fn setup(mut commands: Commands) {
         },
         Camera3d::default(),
         Camera {
-            msaa_writeback: false,
+            msaa_writeback: MsaaWriteback::Off,
             ..default()
         },
         Hdr,
-        PanOrbitCamera::default(),
+        FreeCamera::default(),
         Msaa::Off,
         DepthPrepass::default(),
         Transform::from_xyz(-0.0, 5.0, 20.0).looking_at(Vec3::ZERO, Vec3::Y),

@@ -6,8 +6,9 @@ use bevy::{
         camera::ExtractedCamera,
         extract_component::ComponentUniforms,
         render_resource::{
-            BindGroupEntries, BufferUsages, BufferVec, Extent3d, TextureAspect, TextureDescriptor,
-            TextureDimension, TextureFormat, TextureUsages, TextureViewDescriptor,
+            BindGroupEntries, BufferUsages, BufferVec, Extent3d, PipelineCache, TextureAspect,
+            TextureDescriptor, TextureDimension, TextureFormat, TextureUsages,
+            TextureViewDescriptor,
         },
         renderer::{RenderDevice, RenderQueue},
         view::ViewUniforms,
@@ -159,6 +160,7 @@ pub(crate) fn prepare_raymarch_bind_group(
     query: Query<(&ViewPrepassTextures, &RayMarchPrepass), With<RayMarchCamera>>,
     ray_march_pipeline: Res<RayMarchEnginePipeline>,
     raymarch_buffer: Option<Res<RayMarchBuffer>>,
+    pipeline_cache: Res<PipelineCache>,
     settings_uniforms: Res<ComponentUniforms<RayMarchCamera>>,
     view_uniforms: Res<ViewUniforms>,
     light_meta: Res<LightMeta>,
@@ -180,7 +182,7 @@ pub(crate) fn prepare_raymarch_bind_group(
 
     let texture_bind_group = device.create_bind_group(
         "ray_march_texture_bind_group",
-        &ray_march_pipeline.texture_layout,
+        &pipeline_cache.get_bind_group_layout(&ray_march_pipeline.texture_layout),
         &BindGroupEntries::sequential((
             view_prepass.depth_view().unwrap(),
             settings_binding.clone(),
@@ -189,7 +191,7 @@ pub(crate) fn prepare_raymarch_bind_group(
 
     let common_bind_group = device.create_bind_group(
         "ray_march_view_bind_group",
-        &ray_march_pipeline.common_layout,
+        &pipeline_cache.get_bind_group_layout(&ray_march_pipeline.common_layout),
         &BindGroupEntries::with_indices((
             (0, view_binding.clone()),
             (1, light_binding.clone()),
@@ -199,7 +201,7 @@ pub(crate) fn prepare_raymarch_bind_group(
 
     let storage_bind_group = device.create_bind_group(
         "marcher_storage_bind_group",
-        &ray_march_pipeline.storage_layout,
+        &pipeline_cache.get_bind_group_layout(&ray_march_pipeline.storage_layout),
         &BindGroupEntries::sequential((
             march_buffer.object.as_entire_buffer_binding(),
             march_buffer.operator.as_entire_buffer_binding(),
@@ -210,7 +212,7 @@ pub(crate) fn prepare_raymarch_bind_group(
 
     let prepass_bind_group = device.create_bind_group(
         "marcher_prepass_bind_group",
-        &ray_march_pipeline.prepass_layout,
+        &pipeline_cache.get_bind_group_layout(&ray_march_pipeline.prepass_layout),
         &BindGroupEntries::sequential((
             &raymarch_prepass.depth,
             &raymarch_prepass.normal,

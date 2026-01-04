@@ -33,6 +33,7 @@ This crate is still under active development and **needs significant optimizatio
 
 | bevy_sdf | bevy |
 |----------|------|
+|0.3       | 0.18 |
 |0.2       | 0.17 |
 |0.1       | 0.16 |
 ---
